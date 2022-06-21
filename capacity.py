@@ -253,6 +253,7 @@ def get_limit(namespace):
 
     return req
 
+###### check taints
 def get_anti_affinity(namespace):
     '''
     Get Pod's preferences for scheduling
@@ -415,11 +416,15 @@ def get_impact(percents,deps,pods,usage):
 def get_query_cost(con,component,deps,usage,percents,RPS):
 
     cpu_usage = 0
+
     for i in deps[component]:
         cpu_usage+=usage[i]['cpu']
+
     cpu_usage=cpu_usage*percents[component]+usage[component]['cpu']
+
     cost = RPS[component]/cpu_usage
     print(component,'queries per CPU:',cost)
+
     con.ping()
     with con:
         cur = con.cursor()
@@ -442,6 +447,8 @@ def get_clusters_usage():
 
         response = get(clusters[c] + '/api/v1/query',
         params={'query': "sum(cluster_node_mode:node_cpu_seconds:rate1m{mode!='idle'})"})
+
+
         results = response.json()['data']['result']
         for result in results:
             usage = round(float(result['value'][1]))
@@ -472,35 +479,65 @@ def calc(con,component,deps):
             if dep in deps[component]:
                 revers_deps.setdefault(dep, []).append(comp)
 
+    # requested ресурсы на ВСЕХ нодах кластера
     cluster_req = get_requested(nodes)
     for c in deps:
         pods[c] = len(get_pods(c))
+        # requested ресурсы для конкретного неймспейса
         requested[c] = get_limit(c)
         usage[c] = get_usage(c)
         RPS[c] = get_rps(c)
 
+    # requested ресурсы на всех нодах кластера, но как-то подправленные
+    # percents - запросы конкретного ингресса делить на запросы всех ингрессов
     cluster_req, percents = adjust_cluster_usage(deps,cluster_req,pods,usage,requested,RPS)
 
+    # соотношение, сколько зависимые от ингресса поды сожрали, к тому, сколько сожрал сам под с ингрессом. В процентах, типа
     impact = get_impact(percents,deps,pods,usage)
 
+    # сколько запросов выжирает один CPU
     cost = get_query_cost(con,component,deps,usage,percents,RPS)
 
 
-    # FInal calculations
+    # Final calculations
 
-    rps_capacity = round((cores-cluster_req['cpu'])*cost)
+    # сколько всего rps доступно в кластере на данный момент
+    rps_capacity = round(  (cores - cluster_req['cpu']) * cost  )
 
     capacity = {
-        'rps_capacity_percents': (rps_capacity/(RPS[component]+1))*100,
-        'cpu_capacity': round((cores-cluster_req['cpu'])/(requested[component]['cpu']+(impact[component]*requested[component]['cpu']))),
-        'memory_capacity': round((memory-cluster_req['memory'])/(requested[component]['cpu']+(impact[component]*requested[component]['memory'])))
+
+        # сколько еще раз этот компонент поместится в кластере по RPS
+        'rps_capacity_percents': (  rps_capacity  /  (RPS[component] +1 )  )  *100,
+
+        # сколько еще раз этот компонент поместится в кластере по CPU
+        'cpu_capacity': round(
+
+            (  cores  -  cluster_req['cpu']  ) # свободных ядер в кластере на данный момент
+            /
+            (  requested[component]['cpu']  +  (impact[component] * requested[component]['cpu'])  ) # сколько запросил ресурсов сам компонент + его зависимости
+
+            ),
+
+        # сколько еще раз этот компонент поместится в кластере по памяти
+        'memory_capacity': round(
+
+            (  memory  -  cluster_req['memory']  )
+            /
+            (  requested[component]['cpu']  +  (  impact[component] * requested[component]['memory']  )  )
+
+            )
     }
 
     # get usage of other clusters to figure out whether THIS cluster can take load from other clusters at the momnent
+    # похоже на сумму cpu_seconds из другого кластера (sjc). не работает, т.к. нету метрики в проме. равно нулю
     others_cluster_usage = get_clusters_usage()
-    cluster_req['cpu'] = cluster_req['cpu'] + others_cluster_usage
-    rps_capacity = round((cores-cluster_req['cpu'])*cost)
 
+    cluster_req['cpu'] = cluster_req['cpu'] + others_cluster_usage
+
+
+    rps_capacity = round(  (  cores - cluster_req['cpu']  ) * cost  )
+
+    # идентично обычному capacity, т.к. поломан others_cluster_usage
     o_capacity = {
         'rps_capacity_percents': (rps_capacity/(RPS[component]+1))*100,
         'cpu_capacity': round((cores-cluster_req['cpu'])/(requested[component]['cpu']+(impact[component]*requested[component]['cpu']))),
