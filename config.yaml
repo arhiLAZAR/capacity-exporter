@@ -1,0 +1,24 @@
+apps:
+  rts:
+    reqs:
+      - rtb
+      - mpc
+      - predict
+  rtb:
+    reqs:
+      - bh
+      - tr
+  tr:
+  bh:
+
+
+
+
+# deps['rt-seller'] = ['predict','rt-buyer','mpc']      ## it's ingress
+# deps['bid'] = ['predict','rt-buyer','mpc']            ## it's ingress
+# deps['bh'] = []
+# deps['tr'] = []
+
+# deps['predict'] = []
+# deps['rt-buyer'] = ['bh','tr']
+# deps['mpc'] = ['bh','tr']
