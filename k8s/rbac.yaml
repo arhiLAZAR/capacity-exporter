@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: capacity-exporter
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: capacity-exporter
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: capacity-exporter
+subjects:
+  - kind: ServiceAccount
+    name: capacity-exporter
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: capacity-exporter
+  apiGroup: rbac.authorization.k8s.io

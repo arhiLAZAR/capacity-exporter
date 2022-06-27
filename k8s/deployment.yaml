@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: capacity-exporter
+spec:
+  selector:
+    matchLabels:
+      app: capacity-exporter
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: capacity-exporter
+    spec:
+      serviceAccountName: capacity-exporter
+      containers:
+      - name: capacity-exporter
+        image: arhilazar/capacity-exporter
+        imagePullPolicy: Always
