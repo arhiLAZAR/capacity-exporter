@@ -54,6 +54,13 @@ func getMetricsClientset(apiVersion ...string) *metricsv.Clientset {
 	return clientset
 }
 
+func printWithTabs(str string, indent int) {
+	fmt.Printf("%s\t", str)
+	for i := 1; i < indent-len(str)/8; i++ {
+		fmt.Printf("\t")
+	}
+}
+
 func checkErr(err error) {
 	if err != nil {
 		// panic(err)
