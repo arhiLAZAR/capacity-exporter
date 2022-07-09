@@ -3,15 +3,37 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"strings"
 
+	"github.com/spf13/pflag"
+	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	metricsv "k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
+const defaultConfigPath = "/app/config.yaml"
+
+type configType struct {
+	Affinity []struct {
+		Key      string
+		Value    string
+		Operator string
+	}
+	Namespaces []struct {
+		Name               string
+		Frontend           bool
+		DeploymentAlias    string   `yaml:"deployment_alias"`
+		DependsOn          []string `yaml:"depends_on"`
+		DependsOnFullChain []string
+	}
+}
+
 func main() {
+	// config := readConfig()
+
 	totalUsedCpu, totalUsedMemory := getUsedResources("", "", "")
 	fmt.Printf("\nMilliCpuSum: %+v\nMemSum: %+v\n", totalUsedCpu, totalUsedMemory)
 
@@ -80,6 +102,21 @@ func getMetricsClientset(apiVersion ...string) *metricsv.Clientset {
 	checkErr(err)
 
 	return clientset
+}
+
+func readConfig() configType {
+	// Parse a config flag
+	configPath := pflag.StringP("config", "c", defaultConfigPath, "Path to config file")
+	pflag.Parse()
+
+	configData, err := ioutil.ReadFile(*configPath)
+	checkErr(err)
+
+	config := &configType{}
+	err = yaml.Unmarshal(configData, config)
+	checkErr(err)
+
+	return *config
 }
 
 func printWithTabs(str string, indent int) {
