@@ -32,7 +32,13 @@ type configType struct {
 }
 
 func main() {
-	// config := readConfig()
+	config := readConfig()
+
+	for _, namespace := range config.Namespaces {
+		dependencies := getDependencies(&config, namespace.Name)
+
+		fmt.Printf("Namespace %s has the following dependencies: %+v\n", printWithTabs(namespace.Name, 2, false), dependencies)
+	}
 
 	totalUsedCpu, totalUsedMemory := getUsedResources("", "", "")
 	fmt.Printf("\nMilliCpuSum: %+v\nMemSum: %+v\n", totalUsedCpu, totalUsedMemory)
@@ -102,6 +108,51 @@ func getMetricsClientset(apiVersion ...string) *metricsv.Clientset {
 	checkErr(err)
 
 	return clientset
+}
+
+// Gather all dependencies and sub-dependencies of one namespace
+func getDependencies(config *configType, suzerain string, suzerainList ...string) []string {
+	var vassalList []string
+
+	suzerainList = append(suzerainList, suzerain)
+	allNamespaces := getAllNamespaces(config)
+
+	for _, currentNamespace := range config.Namespaces {
+		if currentNamespace.Name == suzerain {
+			for _, vassal := range currentNamespace.DependsOn {
+				if inList(vassal, suzerainList) {
+					panic("Dependency loop detected!")
+				}
+
+				if !inList(vassal, allNamespaces) {
+					panic("Found undescribed dependency: " + vassal)
+				}
+
+				vassalList = append(vassalList, vassal)
+				vassalList = append(vassalList, getDependencies(config, vassal, suzerainList...)...)
+			}
+		}
+	}
+
+	return vassalList
+}
+
+func getAllNamespaces(config *configType) []string {
+	var namespaceList []string
+
+	for _, namespace := range config.Namespaces {
+		namespaceList = append(namespaceList, namespace.Name)
+	}
+	return namespaceList
+}
+
+func inList(variable string, list []string) bool {
+	for _, x := range list {
+		if x == variable {
+			return true
+		}
+	}
+	return false
 }
 
 func readConfig() configType {
