@@ -119,11 +119,19 @@ func readConfig() configType {
 	return *config
 }
 
-func printWithTabs(str string, indent int) {
-	fmt.Printf("%s\t", str)
+func printWithTabs(str string, indent int, printOutput ...bool) string {
+	tabs := "\t"
+
 	for i := 1; i < indent-len(str)/8; i++ {
-		fmt.Printf("\t")
+		tabs += "\t"
 	}
+
+	output := str + tabs
+
+	if len(printOutput) == 0 || printOutput[0] {
+		fmt.Printf("%s", output)
+	}
+	return output
 }
 
 func checkErr(err error) {
