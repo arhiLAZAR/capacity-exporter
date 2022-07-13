@@ -47,9 +47,10 @@ func main() {
 	for _, namespace := range config.Namespaces {
 		dependencies := getDependencies(&config, namespace.Name)
 
-		fmt.Printf("Namespace %s has the following dependencies: %+v\n", printWithTabs(namespace.Name, 2, false), dependencies)
+		fmt.Printf("%s has the following dependencies: %+v\n", printWithTabs("Namespace "+namespace.Name, 3, false), dependencies)
 	}
 
+	fmt.Println()
 	totalUsedCpu, totalUsedMemory := getUsedResources("", "", "")
 	fmt.Printf("\nMilliCpuSum: %+v\nMemSum: %+v\n", totalUsedCpu, totalUsedMemory)
 
