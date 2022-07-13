@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -20,7 +21,7 @@ type configType struct {
 	Affinity []struct {
 		Key      string
 		Value    string
-		Operator string
+		Operator v1.NodeSelectorOperator
 	}
 	Namespaces []struct {
 		Name               string
@@ -31,8 +32,17 @@ type configType struct {
 	}
 }
 
+type nodeLabelsType struct {
+	Allowed   []string
+	Forbidden []string
+}
+
 func main() {
 	config := readConfig()
+
+	nodeLabels := getAntiAffinityLabels("default", &config)
+
+	fmt.Printf("Allowed labels: %+v\nForbidden labels: %+v\n\n", nodeLabels.Allowed, nodeLabels.Forbidden)
 
 	for _, namespace := range config.Namespaces {
 		dependencies := getDependencies(&config, namespace.Name)
@@ -108,6 +118,51 @@ func getMetricsClientset(apiVersion ...string) *metricsv.Clientset {
 	checkErr(err)
 
 	return clientset
+}
+
+// Check if the deployment in the specified namespace has some affinities
+func getAntiAffinityLabels(namespase string, config *configType) nodeLabelsType {
+	var nodeLabels nodeLabelsType
+
+	clientset := getMetaV1Clientset()
+
+	deploymentList, err := clientset.AppsV1().Deployments(namespase).List(context.TODO(), metav1.ListOptions{})
+	checkErr(err)
+
+	for _, deployment := range deploymentList.Items {
+
+		specAffinity := deployment.Spec.Template.Spec.Affinity
+		if specAffinity != nil && specAffinity.NodeAffinity != nil && specAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
+
+			NodeSelectorTerms := deployment.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+			for _, nodeSelectorTerm := range NodeSelectorTerms {
+
+				for _, deploymentAffinity := range nodeSelectorTerm.MatchExpressions {
+
+					for _, configAffinity := range config.Affinity {
+
+						if deploymentAffinity.Key == configAffinity.Key && deploymentAffinity.Operator == configAffinity.Operator {
+
+							if deploymentAffinity.Operator == "In" {
+								nodeLabels.Allowed = append(nodeLabels.Allowed, deploymentAffinity.Values...)
+							}
+							if deploymentAffinity.Operator == "NotIn" {
+								nodeLabels.Forbidden = append(nodeLabels.Forbidden, deploymentAffinity.Values...)
+							}
+
+						}
+
+					}
+
+				}
+
+			}
+
+		}
+
+	}
+
+	return nodeLabels
 }
 
 // Gather all dependencies and sub-dependencies of one namespace
