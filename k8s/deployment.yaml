@@ -17,3 +17,12 @@ spec:
       - name: capacity-exporter
         image: arhilazar/capacity-exporter
         imagePullPolicy: Always
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: hw
+                operator: NotIn
+                values:
+                - cpu1ram2
