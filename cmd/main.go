@@ -120,12 +120,12 @@ func getMetricsClientset(apiVersion ...string) *metricsv.Clientset {
 }
 
 // Check if the deployment in the specified namespace has some affinities
-func getAntiAffinityLabels(config *configType, namespase string) nodeLabelsType {
+func getAntiAffinityLabels(config *configType, namespace string) nodeLabelsType {
 	var nodeLabels nodeLabelsType
 
 	clientset := getMetaV1Clientset()
 
-	deploymentList, err := clientset.AppsV1().Deployments(namespase).List(context.TODO(), metav1.ListOptions{})
+	deploymentList, err := clientset.AppsV1().Deployments(namespace).List(context.TODO(), metav1.ListOptions{})
 	checkErr(err)
 
 	for _, deployment := range deploymentList.Items {
