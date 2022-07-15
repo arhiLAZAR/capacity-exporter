@@ -40,17 +40,15 @@ type nodeLabelsType struct {
 func main() {
 	config := readConfig()
 
-	nodeLabels := getAntiAffinityLabels("default", &config)
-
-	fmt.Printf("Allowed labels: %+v\nForbidden labels: %+v\n\n", nodeLabels.Allowed, nodeLabels.Forbidden)
-
 	for _, namespace := range config.Namespaces {
-		dependencies := getDependencies(&config, namespace.Name)
+		nodeLabels := getAntiAffinityLabels(&config, namespace.Name)
 
-		fmt.Printf("%s has the following dependencies: %+v\n", printWithTabs("Namespace "+namespace.Name, 3, false), dependencies)
+		fmt.Printf("Namespace: \"%s\"\nAllowed labels: %+v\nForbidden labels: %+v\n", namespace.Name, nodeLabels.Allowed, nodeLabels.Forbidden)
+
+		dependencies := getDependencies(&config, namespace.Name)
+		fmt.Printf("Dependencies: %+v\n\n", dependencies)
 	}
 
-	fmt.Println()
 	totalUsedCpu, totalUsedMemory := getUsedResources("", "", "")
 	fmt.Printf("\nMilliCpuSum: %+v\nMemSum: %+v\n", totalUsedCpu, totalUsedMemory)
 
@@ -122,7 +120,7 @@ func getMetricsClientset(apiVersion ...string) *metricsv.Clientset {
 }
 
 // Check if the deployment in the specified namespace has some affinities
-func getAntiAffinityLabels(namespase string, config *configType) nodeLabelsType {
+func getAntiAffinityLabels(config *configType, namespase string) nodeLabelsType {
 	var nodeLabels nodeLabelsType
 
 	clientset := getMetaV1Clientset()
