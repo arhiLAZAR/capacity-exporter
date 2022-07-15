@@ -23,10 +23,16 @@ type configType struct {
 		Value    string
 		Operator v1.NodeSelectorOperator
 	}
+
+	AllDeploymentsPrefix string `yaml:"all_deployments_prefix"`
+	AllDeploymentsSuffix string `yaml:"all_deployments_suffix"`
+
 	Namespaces []struct {
 		Name               string
 		Frontend           bool
 		DeploymentAlias    string   `yaml:"deployment_alias"`
+		DeploymentPrefix   string   `yaml:"deployment_prefix"`
+		DeploymentSuffix   string   `yaml:"deployment_suffix"`
 		DependsOn          []string `yaml:"depends_on"`
 		DependsOnFullChain []string
 	}
@@ -41,7 +47,10 @@ func main() {
 	config := readConfig()
 
 	for _, namespace := range config.Namespaces {
-		nodeLabels := getAntiAffinityLabels(&config, namespace.Name)
+
+		deploymentName := getDeploymentName(&config, namespace.Name)
+
+		nodeLabels := getAntiAffinityLabels(&config, namespace.Name, deploymentName)
 
 		fmt.Printf("Namespace: \"%s\"\nAllowed labels: %+v\nForbidden labels: %+v\n", namespace.Name, nodeLabels.Allowed, nodeLabels.Forbidden)
 
@@ -119,8 +128,46 @@ func getMetricsClientset(apiVersion ...string) *metricsv.Clientset {
 	return clientset
 }
 
+// Combine deployment name from prefix, suffix and namespace name (or alias)
+func getDeploymentName(config *configType, targetNamespace string) string {
+	var baseName, prefix, suffix string
+
+	prefix = config.AllDeploymentsPrefix
+	suffix = config.AllDeploymentsSuffix
+
+	for _, currentNamespace := range config.Namespaces {
+		if currentNamespace.Name == targetNamespace {
+
+			if currentNamespace.DeploymentPrefix != "" {
+				if currentNamespace.DeploymentPrefix == "UNSET" {
+					prefix = ""
+				} else {
+					prefix = currentNamespace.DeploymentPrefix
+				}
+			}
+
+			if currentNamespace.DeploymentSuffix != "" {
+				if currentNamespace.DeploymentSuffix == "UNSET" {
+					suffix = ""
+				} else {
+					suffix = currentNamespace.DeploymentSuffix
+				}
+			}
+
+			if currentNamespace.DeploymentAlias != "" {
+				baseName = currentNamespace.DeploymentAlias
+			} else {
+				baseName = currentNamespace.Name
+			}
+		}
+	}
+
+	finalName := fmt.Sprintf("%s%s%s", prefix, baseName, suffix)
+	return finalName
+}
+
 // Check if the deployment in the specified namespace has some affinities
-func getAntiAffinityLabels(config *configType, namespace string) nodeLabelsType {
+func getAntiAffinityLabels(config *configType, namespace, deploymentName string) nodeLabelsType {
 	var nodeLabels nodeLabelsType
 
 	clientset := getMetaV1Clientset()
@@ -130,23 +177,27 @@ func getAntiAffinityLabels(config *configType, namespace string) nodeLabelsType 
 
 	for _, deployment := range deploymentList.Items {
 
-		specAffinity := deployment.Spec.Template.Spec.Affinity
-		if specAffinity != nil && specAffinity.NodeAffinity != nil && specAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
+		if deployment.Name == deploymentName {
 
-			NodeSelectorTerms := deployment.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
-			for _, nodeSelectorTerm := range NodeSelectorTerms {
+			specAffinity := deployment.Spec.Template.Spec.Affinity
+			if specAffinity != nil && specAffinity.NodeAffinity != nil && specAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
 
-				for _, deploymentAffinity := range nodeSelectorTerm.MatchExpressions {
+				NodeSelectorTerms := deployment.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+				for _, nodeSelectorTerm := range NodeSelectorTerms {
 
-					for _, configAffinity := range config.Affinity {
+					for _, deploymentAffinity := range nodeSelectorTerm.MatchExpressions {
 
-						if deploymentAffinity.Key == configAffinity.Key && deploymentAffinity.Operator == configAffinity.Operator {
+						for _, configAffinity := range config.Affinity {
 
-							if deploymentAffinity.Operator == "In" {
-								nodeLabels.Allowed = append(nodeLabels.Allowed, deploymentAffinity.Values...)
-							}
-							if deploymentAffinity.Operator == "NotIn" {
-								nodeLabels.Forbidden = append(nodeLabels.Forbidden, deploymentAffinity.Values...)
+							if deploymentAffinity.Key == configAffinity.Key && deploymentAffinity.Operator == configAffinity.Operator {
+
+								if deploymentAffinity.Operator == "In" {
+									nodeLabels.Allowed = append(nodeLabels.Allowed, deploymentAffinity.Values...)
+								}
+								if deploymentAffinity.Operator == "NotIn" {
+									nodeLabels.Forbidden = append(nodeLabels.Forbidden, deploymentAffinity.Values...)
+								}
+
 							}
 
 						}
