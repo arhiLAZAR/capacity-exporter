@@ -26,3 +26,14 @@ spec:
                 operator: NotIn
                 values:
                 - cpu1ram2
+                - cpu2ram4
+              - key: zone
+                operator: NotIn
+                values:
+                - 1a
+                - 1c
+              - key: dc
+                operator: In
+                values:
+                - red
+                - blue
