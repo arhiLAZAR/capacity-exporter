@@ -15,7 +15,10 @@ import (
 	metricsv "k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
-const defaultConfigPath = "/app/config.yaml"
+const (
+	defaultConfigPath = "/app/config.yaml"
+	DEBUG             = true
+)
 
 type configType struct {
 	Affinity []struct {
@@ -62,14 +65,13 @@ func main() {
 
 		nodeLabels := getAntiAffinityLabels(&config, namespace.Name, deploymentName)
 
-		fmt.Printf("Namespace: \"%s\"\nAllowed labels: %+v\nForbidden labels: %+v\n", namespace.Name, nodeLabels.Allowed, nodeLabels.Forbidden)
+		printDebug("Namespace: \"%s\"\nAllowed labels: %+v\nForbidden labels: %+v\n", namespace.Name, nodeLabels.Allowed, nodeLabels.Forbidden)
 
 		dependencies := getDependencies(&config, namespace.Name)
 		fmt.Printf("Dependencies: %+v\n\n", dependencies)
 	}
 
-	totalUsedCpu, totalUsedMemory := getUsedResources("", "", "")
-	fmt.Printf("\nMilliCpuSum: %+v\nMemSum: %+v\n", totalUsedCpu, totalUsedMemory)
+	return cpuSum, memSum
 
 }
 
@@ -100,15 +102,15 @@ func getUsedResources(namespace string, affixes ...string) (int64, int64) {
 			printWithTabs(container.Name, 3)
 
 			if strings.HasPrefix(container.Name, prefix) {
-				fmt.Printf("\tPREFIX\t")
+				printDebug("\tPREFIX\t")
 			}
 
 			if strings.HasSuffix(container.Name, suffix) {
-				fmt.Printf("\tSUFFIX\t")
+				printDebug("\tSUFFIX\t")
 			}
 
-			fmt.Printf("MilliCpu: %+v\t", container.Usage.Cpu().MilliValue())
-			fmt.Printf("Mem: %+v\n", container.Usage.Memory().Value())
+			printDebug("MilliCpu: %+v\t", container.Usage.Cpu().MilliValue())
+			printDebug("Mem: %+v\n", container.Usage.Memory().Value())
 
 			cpuSum += container.Usage.Cpu().MilliValue()
 			memSum += container.Usage.Memory().Value()
@@ -302,9 +304,15 @@ func printWithTabs(str string, indent int, printOutput ...bool) string {
 	output := str + tabs
 
 	if len(printOutput) == 0 || printOutput[0] {
-		fmt.Printf("%s", output)
+		printDebug("%s", output)
 	}
 	return output
+}
+
+func printDebug(line string, variable ...interface{}) {
+	if DEBUG {
+		fmt.Printf(line, variable...)
+	}
 }
 
 func checkErr(err error) {
