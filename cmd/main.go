@@ -59,6 +59,8 @@ type forbiddenLabelsType struct {
 func main() {
 	config := readConfig()
 
+	nodeList := getNodeList()
+
 	for _, namespace := range config.Namespaces {
 
 		deploymentName := getDeploymentName(&config, namespace.Name)
@@ -73,6 +75,16 @@ func main() {
 
 	return cpuSum, memSum
 
+}
+
+// Get a list of all nodes in the cluster
+func getNodeList() v1.NodeList {
+	clientset := getMetaV1Clientset()
+
+	nodeList, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	checkErr(err)
+
+	return *nodeList
 }
 
 // Count amount of used Cpu and Memory for specified namespace and deployment prefix and suffix
