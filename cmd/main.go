@@ -79,7 +79,7 @@ func main() {
 // If allowed labels are specified then count the node only if labels match
 // If forbidden labels are specified then count the node only if labels do not match
 func getTotalAllocatableResources(deploymentLabels deploymentLabelsType, nodeList *v1.NodeList) (int64, int64) {
-	var everythingAllowed, nothingForbidden, thisNodeIsAllowed bool
+	var everythingAllowed, nothingForbidden, thisNodeIsAllowed, thisNodeIsForbidden bool
 	var cpuSum, memSum int64
 
 	if len(deploymentLabels.Allowed) > 0 {
@@ -95,89 +95,29 @@ func getTotalAllocatableResources(deploymentLabels deploymentLabelsType, nodeLis
 	}
 
 	for _, node := range nodeList.Items {
-		thisNodeIsAllowed = false
-
 		if everythingAllowed && nothingForbidden {
 			printDebug("Sum all nodes")
 			thisNodeIsAllowed = true
 		} else {
 
 			if !everythingAllowed && !nothingForbidden {
-				thisNodeIsForbidden := false
 
-				for nodeLabelKey, nodeLabelValue := range node.Labels {
-					printDebug("Nodelabel: %+v, check both-forbidden", nodeLabelKey)
-					for _, forbiddenLabel := range deploymentLabels.Forbidden {
-						// Do not count this node if the node and the deployment has the same FORBIDDEN label...
-						if nodeLabelKey == forbiddenLabel.Key {
-							for _, forbiddenLabelValue := range forbiddenLabel.Values {
-								// ...with the same value
-								if nodeLabelValue == forbiddenLabelValue {
-									thisNodeIsForbidden = true
-								}
-							}
-						}
-					}
-					printDebug("\t%v\n", thisNodeIsAllowed)
-				} // End of "range node.Labels"
-
+				thisNodeIsForbidden = labelsAreEqual(node.Labels, deploymentLabels.Forbidden, "both-forbidden")
 				if !thisNodeIsForbidden {
-					for nodeLabelKey, nodeLabelValue := range node.Labels {
-						printDebug("Nodelabel: %+v, check both-allowed", nodeLabelKey)
-						for _, allowedLabel := range deploymentLabels.Allowed {
-							// Count this node if the node and the deployment has the same ALLOWED label...
-							if nodeLabelKey == allowedLabel.Key {
-								for _, allowedLabelValue := range allowedLabel.Values {
-									// ...with the same value
-									if nodeLabelValue == allowedLabelValue {
-										thisNodeIsAllowed = true
-									}
-								}
-							}
-						}
-						printDebug("\t%v\n", thisNodeIsAllowed)
-					} // End of "range node.Labels"
+					thisNodeIsAllowed = labelsAreEqual(node.Labels, deploymentLabels.Allowed, "both-allowed")
 				}
 
 			} else {
 
 				if !everythingAllowed {
-					for nodeLabelKey, nodeLabelValue := range node.Labels {
-						printDebug("Nodelabel: %+v, check allowed", nodeLabelKey)
-						for _, allowedLabel := range deploymentLabels.Allowed {
-							// Count this node if the node and the deployment has the same ALLOWED label...
-							if nodeLabelKey == allowedLabel.Key {
-								for _, allowedLabelValue := range allowedLabel.Values {
-									// ...with the same value
-									if nodeLabelValue == allowedLabelValue {
-										thisNodeIsAllowed = true
-									}
-								}
-							}
-						}
-						printDebug("\t%v\n", thisNodeIsAllowed)
-					} // End of "range node.Labels"
+					thisNodeIsAllowed = labelsAreEqual(node.Labels, deploymentLabels.Allowed, "allowed")
+				}
+				if !nothingForbidden {
+					thisNodeIsAllowed = !labelsAreEqual(node.Labels, deploymentLabels.Forbidden, "forbidden")
 				}
 
-				if !nothingForbidden {
-					thisNodeIsAllowed = true
-					for nodeLabelKey, nodeLabelValue := range node.Labels {
-						printDebug("Nodelabel: %+v, check forbidden", nodeLabelKey)
-						for _, forbiddenLabel := range deploymentLabels.Forbidden {
-							// Do not count this node if the node and the deployment has the same FORBIDDEN label...
-							if nodeLabelKey == forbiddenLabel.Key {
-								for _, forbiddenLabelValue := range forbiddenLabel.Values {
-									// ...with the same value
-									if nodeLabelValue == forbiddenLabelValue {
-										thisNodeIsAllowed = false
-									}
-								}
-							}
-						}
-						printDebug("\t%v\n", thisNodeIsAllowed)
-					} // End of "range node.Labels"
-				}
 			}
+
 		}
 
 		if thisNodeIsAllowed {
@@ -187,9 +127,31 @@ func getTotalAllocatableResources(deploymentLabels deploymentLabelsType, nodeLis
 			memSum += node.Status.Capacity.Memory().Value()
 		}
 
-	} // End of "range nodeList.Items"
+	}
 
 	return cpuSum, memSum
+}
+
+func labelsAreEqual(nodeLabels map[string]string, deploymentLabels []allowedAndForbiddenLabelsType, checkType ...string) bool {
+	labelsAreEqual := false
+
+	for nodeLabelKey, nodeLabelValue := range nodeLabels {
+		printDebug("%s check %s", printWithTabs("Nodelabel: "+nodeLabelKey, 6, false), checkType[0])
+		for _, deploymentLabel := range deploymentLabels {
+			// Do not count this node if the node and the deployment has the same label...
+			if nodeLabelKey == deploymentLabel.Key {
+				for _, deploymentLabelValue := range deploymentLabel.Values {
+					// ...with the same value
+					if nodeLabelValue == deploymentLabelValue {
+						labelsAreEqual = true
+					}
+				}
+			}
+		}
+		printDebug("\t%v\n", labelsAreEqual)
+	}
+
+	return labelsAreEqual
 }
 
 // Get a list of all nodes in the cluster
