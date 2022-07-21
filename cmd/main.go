@@ -41,7 +41,7 @@ type configType struct {
 	}
 }
 
-type nodeLabelsType struct {
+type deploymentLabelsType struct {
 	Allowed   []allowedLabelsType
 	Forbidden []forbiddenLabelsType
 }
@@ -64,11 +64,11 @@ func main() {
 	for _, namespace := range config.Namespaces {
 
 		deploymentName := getDeploymentName(&config, namespace.Name)
-		nodeLabels := getAntiAffinityLabels(&config, namespace.Name, deploymentName)
+		deploymentLabels := getAntiAffinityLabels(&config, namespace.Name, deploymentName)
 
-		printDebug("Namespace: \"%s\"\nAllowed labels: %+v\nForbidden labels: %+v\n", namespace.Name, nodeLabels.Allowed, nodeLabels.Forbidden)
+		printDebug("Namespace: \"%s\"\nAllowed labels: %+v\nForbidden labels: %+v\n", namespace.Name, deploymentLabels.Allowed, deploymentLabels.Forbidden)
 
-		totalAllocatableCPU, totalAllocatableMemory := getTotalAllocatableResources(nodeLabels, &nodeList)
+		totalAllocatableCPU, totalAllocatableMemory := getTotalAllocatableResources(deploymentLabels, &nodeList)
 		printDebug("Allocatable MilliCpuSum: %+v\nAllocatable MemSum: %+v\n", totalAllocatableCPU, totalAllocatableMemory)
 
 		dependencies := getDependencies(&config, namespace.Name)
@@ -83,17 +83,17 @@ func main() {
 // Get total amount of allocatable memory and cpu
 // If allowed labels are specified then count the node only if labels match
 // If forbidden labels are specified then count the node only if labels do not match
-func getTotalAllocatableResources(nodeLabels nodeLabelsType, nodeList *v1.NodeList) (int64, int64) {
+func getTotalAllocatableResources(deploymentLabels deploymentLabelsType, nodeList *v1.NodeList) (int64, int64) {
 	var everythingAllowed, nothingForbidden, thisNodeIsAllowed bool
 	var cpuSum, memSum int64
 
-	if len(nodeLabels.Allowed) > 0 {
+	if len(deploymentLabels.Allowed) > 0 {
 		everythingAllowed = false
 	} else {
 		everythingAllowed = true
 	}
 
-	if len(nodeLabels.Forbidden) > 0 {
+	if len(deploymentLabels.Forbidden) > 0 {
 		nothingForbidden = false
 	} else {
 		nothingForbidden = true
@@ -112,7 +112,7 @@ func getTotalAllocatableResources(nodeLabels nodeLabelsType, nodeList *v1.NodeLi
 
 				for nodeLabelKey, nodeLabelValue := range node.Labels {
 					printDebug("Nodelabel: %+v, check both-forbidden", nodeLabelKey)
-					for _, forbiddenLabel := range nodeLabels.Forbidden {
+					for _, forbiddenLabel := range deploymentLabels.Forbidden {
 						// Do not count this node if the node and the deployment has the same FORBIDDEN label...
 						if nodeLabelKey == forbiddenLabel.Key {
 							for _, forbiddenLabelValue := range forbiddenLabel.Values {
@@ -129,7 +129,7 @@ func getTotalAllocatableResources(nodeLabels nodeLabelsType, nodeList *v1.NodeLi
 				if !thisNodeIsForbidden {
 					for nodeLabelKey, nodeLabelValue := range node.Labels {
 						printDebug("Nodelabel: %+v, check both-allowed", nodeLabelKey)
-						for _, allowedLabel := range nodeLabels.Allowed {
+						for _, allowedLabel := range deploymentLabels.Allowed {
 							// Count this node if the node and the deployment has the same ALLOWED label...
 							if nodeLabelKey == allowedLabel.Key {
 								for _, allowedLabelValue := range allowedLabel.Values {
@@ -149,7 +149,7 @@ func getTotalAllocatableResources(nodeLabels nodeLabelsType, nodeList *v1.NodeLi
 				if !everythingAllowed {
 					for nodeLabelKey, nodeLabelValue := range node.Labels {
 						printDebug("Nodelabel: %+v, check allowed", nodeLabelKey)
-						for _, allowedLabel := range nodeLabels.Allowed {
+						for _, allowedLabel := range deploymentLabels.Allowed {
 							// Count this node if the node and the deployment has the same ALLOWED label...
 							if nodeLabelKey == allowedLabel.Key {
 								for _, allowedLabelValue := range allowedLabel.Values {
@@ -168,7 +168,7 @@ func getTotalAllocatableResources(nodeLabels nodeLabelsType, nodeList *v1.NodeLi
 					thisNodeIsAllowed = true
 					for nodeLabelKey, nodeLabelValue := range node.Labels {
 						printDebug("Nodelabel: %+v, check forbidden", nodeLabelKey)
-						for _, forbiddenLabel := range nodeLabels.Forbidden {
+						for _, forbiddenLabel := range deploymentLabels.Forbidden {
 							// Do not count this node if the node and the deployment has the same FORBIDDEN label...
 							if nodeLabelKey == forbiddenLabel.Key {
 								for _, forbiddenLabelValue := range forbiddenLabel.Values {
@@ -311,8 +311,8 @@ func getDeploymentName(config *configType, targetNamespace string) string {
 }
 
 // Check if the deployment in the specified namespace has some affinities
-func getAntiAffinityLabels(config *configType, namespace, deploymentName string) nodeLabelsType {
-	var nodeLabels nodeLabelsType
+func getAntiAffinityLabels(config *configType, namespace, deploymentName string) deploymentLabelsType {
+	var deploymentLabels deploymentLabelsType
 
 	clientset := getMetaV1Clientset()
 
@@ -340,13 +340,13 @@ func getAntiAffinityLabels(config *configType, namespace, deploymentName string)
 									labels.Key = deploymentAffinity.Key
 									labels.Values = deploymentAffinity.Values
 
-									nodeLabels.Allowed = append(nodeLabels.Allowed, labels)
+									deploymentLabels.Allowed = append(deploymentLabels.Allowed, labels)
 								}
 								if deploymentAffinity.Operator == "NotIn" {
 									var labels forbiddenLabelsType
 									labels.Key = deploymentAffinity.Key
 									labels.Values = deploymentAffinity.Values
-									nodeLabels.Forbidden = append(nodeLabels.Forbidden, labels)
+									deploymentLabels.Forbidden = append(deploymentLabels.Forbidden, labels)
 								}
 
 							}
@@ -363,7 +363,7 @@ func getAntiAffinityLabels(config *configType, namespace, deploymentName string)
 
 	}
 
-	return nodeLabels
+	return deploymentLabels
 }
 
 // Gather all dependencies and sub-dependencies of one namespace
