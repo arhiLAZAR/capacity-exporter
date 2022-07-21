@@ -63,7 +63,7 @@ func main() {
 
 		printDebug("Namespace: \"%s\"\nAllowed labels: %+v\nForbidden labels: %+v\n", namespace.Name, deploymentLabels.Allowed, deploymentLabels.Forbidden)
 
-		totalAllocatableCPU, totalAllocatableMemory, allowedNodes := getTotalAllocatableResources(deploymentLabels, &nodeList)
+		totalAllocatableCPU, totalAllocatableMemory, allowedNodes := getAllocatableResources(deploymentLabels, &nodeList)
 		printDebug("Allocatable MilliCpuSum: %+v\nAllocatable MemSum: %+v\nAllowed nodes: %+v\n", totalAllocatableCPU, totalAllocatableMemory, allowedNodes)
 
 		dependencies := getDependencies(&config, namespace.Name)
@@ -75,10 +75,10 @@ func main() {
 
 }
 
-// Get total amount of allocatable memory and cpu
-// If allowed labels are specified then count the node only if labels match
-// If forbidden labels are specified then count the node only if labels do not match
-func getTotalAllocatableResources(deploymentLabels deploymentLabelsType, nodeList *v1.NodeList) (int64, int64, []string) {
+// Get total amount of allocatable memory and cpu for nodes with relevant labels in the specific namespace
+// If allowed labels are specified then count the node only if the labels match
+// If forbidden labels are specified then count the node only if the labels do not match
+func getAllocatableResources(deploymentLabels deploymentLabelsType, nodeList *v1.NodeList) (int64, int64, []string) {
 	var everythingAllowed, nothingForbidden, thisNodeIsAllowed, thisNodeIsForbidden bool
 	var cpuSum, memSum int64
 	var allowedNodes []string
