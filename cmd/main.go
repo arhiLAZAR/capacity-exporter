@@ -42,16 +42,11 @@ type configType struct {
 }
 
 type deploymentLabelsType struct {
-	Allowed   []allowedLabelsType
-	Forbidden []forbiddenLabelsType
+	Allowed   []allowedAndForbiddenLabelsType
+	Forbidden []allowedAndForbiddenLabelsType
 }
 
-type allowedLabelsType struct {
-	Key    string
-	Values []string
-}
-
-type forbiddenLabelsType struct {
+type allowedAndForbiddenLabelsType struct {
 	Key    string
 	Values []string
 }
@@ -336,14 +331,14 @@ func getAntiAffinityLabels(config *configType, namespace, deploymentName string)
 							if deploymentAffinity.Key == configAffinity.Key && deploymentAffinity.Operator == configAffinity.Operator {
 
 								if deploymentAffinity.Operator == "In" {
-									var labels allowedLabelsType
+									var labels allowedAndForbiddenLabelsType
 									labels.Key = deploymentAffinity.Key
 									labels.Values = deploymentAffinity.Values
 
 									deploymentLabels.Allowed = append(deploymentLabels.Allowed, labels)
 								}
 								if deploymentAffinity.Operator == "NotIn" {
-									var labels forbiddenLabelsType
+									var labels allowedAndForbiddenLabelsType
 									labels.Key = deploymentAffinity.Key
 									labels.Values = deploymentAffinity.Values
 									deploymentLabels.Forbidden = append(deploymentLabels.Forbidden, labels)
