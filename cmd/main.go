@@ -63,8 +63,8 @@ func main() {
 
 		printDebug("Namespace: \"%s\"\nAllowed labels: %+v\nForbidden labels: %+v\n", namespace.Name, deploymentLabels.Allowed, deploymentLabels.Forbidden)
 
-		totalAllocatableCPU, totalAllocatableMemory := getTotalAllocatableResources(deploymentLabels, &nodeList)
-		printDebug("Allocatable MilliCpuSum: %+v\nAllocatable MemSum: %+v\n", totalAllocatableCPU, totalAllocatableMemory)
+		totalAllocatableCPU, totalAllocatableMemory, allowedNodes := getTotalAllocatableResources(deploymentLabels, &nodeList)
+		printDebug("Allocatable MilliCpuSum: %+v\nAllocatable MemSum: %+v\nAllowed nodes: %+v\n", totalAllocatableCPU, totalAllocatableMemory, allowedNodes)
 
 		dependencies := getDependencies(&config, namespace.Name)
 		printDebug("Dependencies: %+v\n\n", dependencies)
@@ -78,9 +78,10 @@ func main() {
 // Get total amount of allocatable memory and cpu
 // If allowed labels are specified then count the node only if labels match
 // If forbidden labels are specified then count the node only if labels do not match
-func getTotalAllocatableResources(deploymentLabels deploymentLabelsType, nodeList *v1.NodeList) (int64, int64) {
+func getTotalAllocatableResources(deploymentLabels deploymentLabelsType, nodeList *v1.NodeList) (int64, int64, []string) {
 	var everythingAllowed, nothingForbidden, thisNodeIsAllowed, thisNodeIsForbidden bool
 	var cpuSum, memSum int64
+	var allowedNodes []string
 
 	if len(deploymentLabels.Allowed) > 0 {
 		everythingAllowed = false
@@ -125,11 +126,12 @@ func getTotalAllocatableResources(deploymentLabels deploymentLabelsType, nodeLis
 
 			cpuSum += node.Status.Capacity.Cpu().MilliValue()
 			memSum += node.Status.Capacity.Memory().Value()
+			allowedNodes = append(allowedNodes, node.Name)
 		}
 
 	}
 
-	return cpuSum, memSum
+	return cpuSum, memSum, allowedNodes
 }
 
 func labelsAreEqual(nodeLabels map[string]string, deploymentLabels []allowedAndForbiddenLabelsType, checkType ...string) bool {
