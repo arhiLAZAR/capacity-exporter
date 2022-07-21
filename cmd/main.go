@@ -55,6 +55,7 @@ func main() {
 	config := readConfig()
 
 	nodeList := getNodeList()
+	podList := getPodList()
 
 	for _, namespace := range config.Namespaces {
 
@@ -164,6 +165,23 @@ func getNodeList() v1.NodeList {
 	checkErr(err)
 
 	return *nodeList
+}
+
+// Get a list of all or namespaced pods in the cluster
+func getPodList(namespace ...string) v1.PodList {
+	var actualNamespace string
+	clientset := getMetaV1Clientset()
+
+	if len(namespace) == 0 {
+		actualNamespace = ""
+	} else {
+		actualNamespace = namespace[0]
+	}
+
+	podList, err := clientset.CoreV1().Pods(actualNamespace).List(context.TODO(), metav1.ListOptions{})
+	checkErr(err)
+
+	return *podList
 }
 
 // Count amount of used Cpu and Memory for specified namespace and deployment prefix and suffix
