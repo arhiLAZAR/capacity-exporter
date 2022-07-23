@@ -67,6 +67,9 @@ func main() {
 		allocatableCPU, allocatableMemory, allowedNodes := getAllocatableResources(deploymentLabels, &nodeList)
 		printDebug("Allocatable MilliCpuSum: %+v\nAllocatable MemSum: %+v\nAllowed nodes: %+v\n", allocatableCPU, allocatableMemory, allowedNodes)
 
+		requestedCPU, requestedMemory := getRequestedResources(allowedNodes, &podList)
+		printDebug("Requested MilliCpuSum: %+v\nRequested MemSum: %+v\n", requestedCPU, requestedMemory)
+
 		dependencies := getDependencies(&config, namespace.Name)
 		printDebug("Dependencies: %+v\n\n", dependencies)
 	}
@@ -74,6 +77,22 @@ func main() {
 	totalUsedCPU, totalUsedMemory := getUsedResources("", "", "")
 	printDebug("\nUsed MilliCpuSum: %+v\nnUsed MemSum: %+v\n", totalUsedCPU, totalUsedMemory)
 
+}
+
+// Get total amount of requested memory and cpu on specified nodes
+func getRequestedResources(nodes []string, pods *v1.PodList) (int64, int64) {
+	var cpuSum, memSum int64
+
+	for _, pod := range pods.Items {
+		if inList(pod.Spec.NodeName, nodes) {
+			for _, container := range pod.Spec.Containers {
+				cpuSum += container.Resources.Requests.Cpu().MilliValue()
+				memSum += container.Resources.Requests.Memory().Value()
+			}
+		}
+	}
+
+	return cpuSum, memSum
 }
 
 // Get total amount of allocatable memory and cpu for nodes with relevant labels in the specific namespace
