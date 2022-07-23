@@ -70,6 +70,9 @@ func main() {
 		requestedCPU, requestedMemory := getRequestedResources(allowedNodes, &podList)
 		printDebug("Requested MilliCpuSum: %+v\nRequested MemSum: %+v\n", requestedCPU, requestedMemory)
 
+		podsAmount := len(getPodList(namespace.Name).Items)
+		printDebug("Amount of pods: %+v\n", podsAmount)
+
 		dependencies := getDependencies(&config, namespace.Name)
 		printDebug("Dependencies: %+v\n\n", dependencies)
 	}
