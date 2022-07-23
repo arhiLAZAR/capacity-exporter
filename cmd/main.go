@@ -64,8 +64,8 @@ func main() {
 
 		printDebug("Namespace: \"%s\"\nAllowed labels: %+v\nForbidden labels: %+v\n", namespace.Name, deploymentLabels.Allowed, deploymentLabels.Forbidden)
 
-		totalAllocatableCPU, totalAllocatableMemory, allowedNodes := getAllocatableResources(deploymentLabels, &nodeList)
-		printDebug("Allocatable MilliCpuSum: %+v\nAllocatable MemSum: %+v\nAllowed nodes: %+v\n", totalAllocatableCPU, totalAllocatableMemory, allowedNodes)
+		allocatableCPU, allocatableMemory, allowedNodes := getAllocatableResources(deploymentLabels, &nodeList)
+		printDebug("Allocatable MilliCpuSum: %+v\nAllocatable MemSum: %+v\nAllowed nodes: %+v\n", allocatableCPU, allocatableMemory, allowedNodes)
 
 		dependencies := getDependencies(&config, namespace.Name)
 		printDebug("Dependencies: %+v\n\n", dependencies)
