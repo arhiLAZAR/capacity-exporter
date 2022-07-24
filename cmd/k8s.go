@@ -247,14 +247,8 @@ func getNodeList() v1.NodeList {
 
 // Get a list of all or namespaced pods in the cluster
 func getPodList(namespace ...string) v1.PodList {
-	var actualNamespace string
 	clientset := getMetaV1Clientset()
-
-	if len(namespace) == 0 {
-		actualNamespace = ""
-	} else {
-		actualNamespace = namespace[0]
-	}
+	actualNamespace := checkVariadic(namespace)
 
 	podList, err := clientset.CoreV1().Pods(actualNamespace).List(context.TODO(), metav1.ListOptions{})
 	checkErr(err)
@@ -263,14 +257,8 @@ func getPodList(namespace ...string) v1.PodList {
 }
 
 func getDeploymentList(namespace ...string) appsV1.DeploymentList {
-	var actualNamespace string
 	clientset := getMetaV1Clientset()
-
-	if len(namespace) == 0 {
-		actualNamespace = ""
-	} else {
-		actualNamespace = namespace[0]
-	}
+	actualNamespace := checkVariadic(namespace)
 
 	deploymentList, err := clientset.AppsV1().Deployments(actualNamespace).List(context.TODO(), metav1.ListOptions{})
 	checkErr(err)

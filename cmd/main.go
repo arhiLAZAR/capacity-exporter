@@ -168,6 +168,18 @@ func readConfig() configType {
 	return *config
 }
 
+func checkVariadic(slice []string) string {
+	var output string
+
+	if len(slice) == 0 {
+		output = ""
+	} else {
+		output = slice[0]
+	}
+
+	return output
+}
+
 func inList(variable string, list []string) bool {
 	for _, x := range list {
 		if x == variable {
