@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
+	appsV1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -206,6 +207,22 @@ func getPodList(namespace ...string) v1.PodList {
 	return *podList
 }
 
+func getDeploymentList(namespace ...string) appsV1.DeploymentList {
+	var actualNamespace string
+	clientset := getMetaV1Clientset()
+
+	if len(namespace) == 0 {
+		actualNamespace = ""
+	} else {
+		actualNamespace = namespace[0]
+	}
+
+	deploymentList, err := clientset.AppsV1().Deployments(actualNamespace).List(context.TODO(), metav1.ListOptions{})
+	checkErr(err)
+
+	return *deploymentList
+}
+
 // Count amount of used Cpu and Memory for specified namespace and deployment prefix and suffix
 func getUsedResources(namespace string, affixes ...string) (int64, int64) {
 
@@ -312,11 +329,7 @@ func getDeploymentName(config *configType, targetNamespace string) string {
 // Check if the deployment in the specified namespace has some affinities
 func getAntiAffinityLabels(config *configType, namespace, deploymentName string) deploymentLabelsType {
 	var deploymentLabels deploymentLabelsType
-
-	clientset := getMetaV1Clientset()
-
-	deploymentList, err := clientset.AppsV1().Deployments(namespace).List(context.TODO(), metav1.ListOptions{})
-	checkErr(err)
+	deploymentList := getDeploymentList(namespace)
 
 	for _, deployment := range deploymentList.Items {
 
