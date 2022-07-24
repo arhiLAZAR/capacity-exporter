@@ -71,6 +71,9 @@ func main() {
 		totalRequestedCPU, totalRequestedMemory := getTotalRequestedResources(allowedNodes, &podList)
 		printDebug("Total Requested MilliCpuSum: %+v\nTotal Requested MemSum: %+v\n", totalRequestedCPU, totalRequestedMemory)
 
+		deploymentRequestedCPU, deploymentRequestedMemory := getDeploymentRequestedResources(namespace.Name, deploymentName)
+		printDebug("Deployment Requested MilliCpuSum: %+v\nDeployment Requested MemSum: %+v\n", deploymentRequestedCPU, deploymentRequestedMemory)
+
 		podsAmount := len(getPodList(namespace.Name).Items)
 		printDebug("Amount of pods: %+v\n", podsAmount)
 
@@ -92,6 +95,35 @@ func getTotalRequestedResources(nodes []string, pods *v1.PodList) (int64, int64)
 			for _, container := range pod.Spec.Containers {
 				cpuSum += container.Resources.Requests.Cpu().MilliValue()
 				memSum += container.Resources.Requests.Memory().Value()
+			}
+		}
+	}
+
+	return cpuSum, memSum
+}
+
+// Get amount of requested memory and cpu for specified deployment
+func getDeploymentRequestedResources(namespace, deploymentName string) (int64, int64) {
+	var cpuSum, memSum, replicaCount int64
+	deploymentList := getDeploymentList(namespace)
+
+	if len(deploymentList.Items) > 0 {
+		for _, deployment := range deploymentList.Items {
+			if deployment.Name == deploymentName {
+
+				var containerCPU, containerMem int64
+				replicaCount = int64(*deployment.Spec.Replicas)
+				containers := deployment.Spec.Template.Spec.Containers
+
+				if len(containers) > 0 {
+					for _, container := range containers {
+						containerCPU += container.Resources.Requests.Cpu().MilliValue()
+						containerMem += container.Resources.Requests.Memory().Value()
+					}
+				}
+				cpuSum += containerCPU * replicaCount
+				memSum += containerMem * replicaCount
+
 			}
 		}
 	}
