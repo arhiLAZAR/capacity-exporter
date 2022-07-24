@@ -12,45 +12,25 @@ import (
 	metricsv "k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
-// Count amount of used Cpu and Memory for specified namespace and deployment prefix and suffix
-func getUsedResources(namespace string, affixes ...string) (int64, int64) {
-
-	prefix := ""
-	suffix := ""
-
-	if len(affixes) > 0 {
-		prefix = affixes[0]
-	}
-
-	if len(affixes) > 1 {
-		suffix = affixes[1]
-	}
-
+// Count amount of used Cpu and Memory for specified namespace and deployment
+func getUsedResources(namespace string, deploymentName ...string) (int64, int64) {
+	var cpuSum, memSum int64
 	clientset := getMetricsClientset()
+	actualDeploymentName := checkVariadic(deploymentName)
 
 	podMetricsList, err := clientset.MetricsV1beta1().PodMetricses(namespace).List(context.TODO(), metav1.ListOptions{})
 	checkErr(err)
 
-	var cpuSum, memSum int64
-
 	for _, pod := range podMetricsList.Items {
-		for _, container := range pod.Containers {
+		if strings.HasPrefix(pod.Name, actualDeploymentName) {
+			for _, container := range pod.Containers {
+				printWithTabs("Pod: "+pod.Name+"\tContainer: "+container.Name, 10)
+				printDebug("UsedMilliCpu: %+v\t", container.Usage.Cpu().MilliValue())
+				printDebug("UsedMem: %+v\n", container.Usage.Memory().Value())
 
-			printWithTabs(container.Name, 3)
-
-			if strings.HasPrefix(container.Name, prefix) {
-				printDebug("\tPREFIX\t")
+				cpuSum += container.Usage.Cpu().MilliValue()
+				memSum += container.Usage.Memory().Value()
 			}
-
-			if strings.HasSuffix(container.Name, suffix) {
-				printDebug("\tSUFFIX\t")
-			}
-
-			printDebug("MilliCpu: %+v\t", container.Usage.Cpu().MilliValue())
-			printDebug("Mem: %+v\n", container.Usage.Memory().Value())
-
-			cpuSum += container.Usage.Cpu().MilliValue()
-			memSum += container.Usage.Memory().Value()
 		}
 	}
 

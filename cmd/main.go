@@ -70,12 +70,12 @@ func main() {
 		podsAmount := len(getPodList(namespace.Name).Items)
 		printDebug("Amount of pods: %+v\n", podsAmount)
 
+		usedCPU, usedMemory := getUsedResources(namespace.Name, deploymentName)
+		printDebug("\nUsed MilliCpuSum: %+v\nnUsed MemSum: %+v\n", usedCPU, usedMemory)
+
 		dependencies := getDependencies(&config, namespace.Name)
 		printDebug("Dependencies: %+v\n\n", dependencies)
 	}
-
-	totalUsedCPU, totalUsedMemory := getUsedResources("", "", "")
-	printDebug("\nUsed MilliCpuSum: %+v\nnUsed MemSum: %+v\n", totalUsedCPU, totalUsedMemory)
 
 }
 
