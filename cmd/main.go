@@ -68,8 +68,8 @@ func main() {
 		allocatableCPU, allocatableMemory, allowedNodes := getAllocatableResources(deploymentLabels, &nodeList)
 		printDebug("Allocatable MilliCpuSum: %+v\nAllocatable MemSum: %+v\nAllowed nodes: %+v\n", allocatableCPU, allocatableMemory, allowedNodes)
 
-		totalRequestedCPU, totalRequestedMemory := getRequestedResources(allowedNodes, &podList)
-		printDebug("Requested MilliCpuSum: %+v\nRequested MemSum: %+v\n", totalRequestedCPU, totalRequestedMemory)
+		totalRequestedCPU, totalRequestedMemory := getTotalRequestedResources(allowedNodes, &podList)
+		printDebug("Total Requested MilliCpuSum: %+v\nTotal Requested MemSum: %+v\n", totalRequestedCPU, totalRequestedMemory)
 
 		podsAmount := len(getPodList(namespace.Name).Items)
 		printDebug("Amount of pods: %+v\n", podsAmount)
@@ -84,7 +84,7 @@ func main() {
 }
 
 // Get total amount of requested memory and cpu on specified nodes
-func getRequestedResources(nodes []string, pods *v1.PodList) (int64, int64) {
+func getTotalRequestedResources(nodes []string, pods *v1.PodList) (int64, int64) {
 	var cpuSum, memSum int64
 
 	for _, pod := range pods.Items {
