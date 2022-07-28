@@ -1,17 +1,24 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"time"
 
+	promapi "github.com/prometheus/client_golang/api"
+	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/model"
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
 )
 
 const (
-	defaultConfigPath = "/app/config.yaml"
-	DEBUG             = true
+	defaultConfigPath        = "/app/config.yaml"
+	DEBUG                    = true
+	prometheusDefaultTimeout = 10
 )
 
 type configType struct {
@@ -77,6 +84,56 @@ func main() {
 		printDebug("Dependencies: %+v\n\n", dependencies)
 	}
 
+}
+
+// Get values for the provided Prometheus query
+func promRequest(address, query string, params ...promQueryParamsType) []float64 {
+	var actualParams promQueryParamsType
+	var response []float64
+
+	if len(params) == 0 {
+		actualParams.PromTimeout = prometheusDefaultTimeout * time.Second
+		actualParams.QueryTime = time.Now()
+	} else {
+
+		if params[0].QueryTime.IsZero() {
+			actualParams.QueryTime = time.Now()
+		} else {
+			actualParams.QueryTime = params[0].QueryTime
+		}
+
+		if params[0].PromTimeout == time.Duration(0) {
+			actualParams.PromTimeout = prometheusDefaultTimeout * time.Second
+		} else {
+			actualParams.PromTimeout = params[0].PromTimeout * time.Second
+		}
+
+	}
+
+	client, err := promapi.NewClient(promapi.Config{Address: address})
+	checkErr(err)
+
+	v1api := promv1.NewAPI(client)
+	ctx, cancel := context.WithTimeout(context.Background(), actualParams.PromTimeout)
+	defer cancel()
+
+	result, warnings, err := v1api.Query(ctx, query, actualParams.QueryTime)
+	checkErr(err)
+
+	if len(warnings) > 0 {
+		printDebug("Prometheus warnings: %v\n", warnings)
+	}
+
+	vectorResult, isVector := result.(model.Vector)
+	if isVector {
+		for _, currentResult := range vectorResult {
+			response = append(response, float64(currentResult.Value))
+		}
+	} else {
+		panic("Cannot get any response from Prometheus for the following metric:\n" + query)
+	}
+
+	return response
 }
 
 // Gather all dependencies and sub-dependencies of one namespace
