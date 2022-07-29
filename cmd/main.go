@@ -91,6 +91,8 @@ func promRequest(address, query string, params ...promQueryParamsType) []float64
 	var actualParams promQueryParamsType
 	var response []float64
 
+	printDebug("Prom query: %s\n", query)
+
 	if len(params) == 0 {
 		actualParams.PromTimeout = prometheusDefaultTimeout * time.Second
 		actualParams.QueryTime = time.Now()
@@ -134,6 +136,7 @@ func promRequest(address, query string, params ...promQueryParamsType) []float64
 		printDebug("Cannot get response from Prometheus for the following query:\n%+v\n", query)
 	}
 
+	printDebug("Prom respose: %+v\n", response)
 	return response
 }
 
