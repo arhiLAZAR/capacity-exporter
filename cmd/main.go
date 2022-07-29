@@ -61,6 +61,11 @@ type allowedAndForbiddenLabelsType struct {
 	Values []string
 }
 
+type promQueryParamsType struct {
+	QueryTime   time.Time
+	PromTimeout time.Duration
+}
+
 func main() {
 	config := readConfig()
 
@@ -90,9 +95,43 @@ func main() {
 		printDebug("Used MilliCpuSum: %+v\nnUsed MemSum: %+v\n", usedCPU, usedMemory)
 
 		dependencies := getDependencies(&config, namespace.Name)
-		printDebug("Dependencies: %+v\n\n", dependencies)
+		printDebug("Dependencies: %+v\n", dependencies)
+
+		rps := getRPS(&config, namespace.Name)
+		printDebug("RPS: %+v\n\n", rps)
 	}
 
+}
+
+// Get Requests Per Second for the specified namespace (from Prometheus)
+func getRPS(config *configType, namespace string) float64 {
+
+	promAddress := config.Prometheus.Address
+	promQuery := parsePromQuery(config, namespace)
+
+	promResponse := promRequest(promAddress, promQuery)
+
+	if len(promResponse) == 0 {
+		return 0
+	}
+	return promResponse[0]
+}
+
+func parsePromQuery(config *configType, targetNamespace string) string {
+	var outputQuery string
+
+	for _, currentNamespace := range config.Namespaces {
+		if currentNamespace.Name == targetNamespace {
+			if currentNamespace.Prometheus.QueryFullOverride != "" {
+				outputQuery = currentNamespace.Prometheus.QueryFullOverride
+			} else {
+				outputQuery = fmt.Sprintf(config.Prometheus.QueryTemplate, currentNamespace.Prometheus.QueryVariable)
+			}
+
+		}
+	}
+
+	return outputQuery
 }
 
 // Get values for the provided Prometheus query
