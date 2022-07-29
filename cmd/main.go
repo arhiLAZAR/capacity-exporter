@@ -87,7 +87,7 @@ func main() {
 		printDebug("Amount of pods: %+v\n", podsAmount)
 
 		usedCPU, usedMemory := getUsedResources(namespace.Name, deploymentName)
-		printDebug("\nUsed MilliCpuSum: %+v\nnUsed MemSum: %+v\n", usedCPU, usedMemory)
+		printDebug("Used MilliCpuSum: %+v\nnUsed MemSum: %+v\n", usedCPU, usedMemory)
 
 		dependencies := getDependencies(&config, namespace.Name)
 		printDebug("Dependencies: %+v\n\n", dependencies)
