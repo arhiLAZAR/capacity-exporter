@@ -76,7 +76,6 @@ func main() {
 
 		deploymentName := getDeploymentName(&config, namespace.Name)
 		deploymentLabels := getAntiAffinityLabels(&config, namespace.Name, deploymentName)
-
 		printDebug("Namespace: \"%s\"\nAllowed labels: %+v\nForbidden labels: %+v\n", namespace.Name, deploymentLabels.Allowed, deploymentLabels.Forbidden)
 
 		allocatableCPU, allocatableMemory, allowedNodes := getAllocatableResources(deploymentLabels, &nodeList)
@@ -92,7 +91,7 @@ func main() {
 		printDebug("Amount of pods: %+v\n", podsAmount)
 
 		usedCPU, usedMemory := getUsedResources(namespace.Name, deploymentName)
-		printDebug("Used MilliCpuSum: %+v\nnUsed MemSum: %+v\n", usedCPU, usedMemory)
+		printDebug("Used MilliCpuSum: %+v\nUsed MemSum: %+v\n", usedCPU, usedMemory)
 
 		dependencies := getDependencies(&config, namespace.Name)
 		printDebug("Dependencies: %+v\n", dependencies)
