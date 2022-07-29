@@ -21,6 +21,12 @@ const (
 )
 
 type configType struct {
+	Prometheus struct {
+		Address       string
+		Timeout       int64
+		QueryTemplate string `yaml:"query_template"`
+	}
+
 	Affinity []struct {
 		Key      string
 		Value    string
@@ -38,6 +44,10 @@ type configType struct {
 		DeploymentSuffix   string   `yaml:"deployment_suffix"`
 		DependsOn          []string `yaml:"depends_on"`
 		DependsOnFullChain []string
+		Prometheus         struct {
+			QueryVariable     string `yaml:"query_variable"`
+			QueryFullOverride string `yaml:"query_full_override"`
+		}
 	}
 }
 
