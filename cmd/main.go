@@ -130,7 +130,8 @@ func promRequest(address, query string, params ...promQueryParamsType) []float64
 			response = append(response, float64(currentResult.Value))
 		}
 	} else {
-		panic("Cannot get any response from Prometheus for the following metric:\n" + query)
+		// panic("Cannot get response from Prometheus for the following query:\n" + query)
+		printDebug("Cannot get response from Prometheus for the following query:\n%+v\n", query)
 	}
 
 	return response
