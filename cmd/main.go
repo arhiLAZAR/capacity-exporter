@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"time"
 
 	promapi "github.com/prometheus/client_golang/api"
@@ -37,14 +38,17 @@ type configType struct {
 	AllDeploymentsSuffix string `yaml:"all_deployments_suffix"`
 
 	Namespaces []struct {
-		Name               string
-		Frontend           bool
-		DeploymentAlias    string   `yaml:"deployment_alias"`
-		DeploymentPrefix   string   `yaml:"deployment_prefix"`
-		DeploymentSuffix   string   `yaml:"deployment_suffix"`
-		DependsOn          []string `yaml:"depends_on"`
-		DependsOnFullChain []string
-		Prometheus         struct {
+		Name                         string
+		Frontend                     bool
+		FrontendSuccessfulPercentage float64 `yaml:"frontend_successful_percentage"`
+		Shared                       bool
+		FrontendToSharedPercentage   float64  `yaml:"frontend_to_shared_percentage"`
+		DeploymentAlias              string   `yaml:"deployment_alias"`
+		DeploymentPrefix             string   `yaml:"deployment_prefix"`
+		DeploymentSuffix             string   `yaml:"deployment_suffix"`
+		DependsOn                    []string `yaml:"depends_on"`
+		DependsOnFullChain           []string
+		Prometheus                   struct {
 			QueryVariable     string `yaml:"query_variable"`
 			QueryFullOverride string `yaml:"query_full_override"`
 		}
@@ -96,10 +100,35 @@ func main() {
 		dependencies := getDependencies(&config, namespace.Name)
 		printDebug("Dependencies: %+v\n", dependencies)
 
-		rps := getRPS(&config, namespace.Name)
-		printDebug("RPS: %+v\n\n", rps)
+		rawRPS := getRPS(&config, namespace.Name)
+		printDebug("Raw RPS: %+v\n", rawRPS)
+
+		adjustedRPS := adjustRPS(&config, namespace.Name, rawRPS)
+		printDebug("Adjusted RPS: %+v\n", adjustedRPS)
+
+		printDebug("\n")
 	}
 
+}
+
+// Apply frontend_successful_percentage and frontend_to_shared_percentage multipliers from config.yaml
+func adjustRPS(config *configType, targetNamespace string, rawRPS float64) float64 {
+	multiplier := 1.0
+
+	for _, currentNamespace := range config.Namespaces {
+		if currentNamespace.Name == targetNamespace {
+			if currentNamespace.Frontend && currentNamespace.FrontendSuccessfulPercentage != 0 {
+				multiplier *= currentNamespace.FrontendSuccessfulPercentage / 100
+			}
+
+			if currentNamespace.Frontend && currentNamespace.Shared && currentNamespace.FrontendToSharedPercentage != 0 {
+				multiplier *= currentNamespace.FrontendToSharedPercentage / 100
+			}
+		}
+	}
+
+	printDebug("Multiplier: %+v\n", multiplier)
+	return math.Round(rawRPS * multiplier)
 }
 
 // Get Requests Per Second for the specified namespace (from Prometheus)
