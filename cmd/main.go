@@ -71,40 +71,53 @@ type promQueryParamsType struct {
 }
 
 func main() {
+	var allowedNodes []string
+
+	allocatableCPU := make(map[string]int64)
+	allocatableMemory := make(map[string]int64)
+	totalRequestedCPU := make(map[string]int64)
+	totalRequestedMemory := make(map[string]int64)
+	deploymentRequestedCPU := make(map[string]int64)
+	deploymentRequestedMemory := make(map[string]int64)
+	usedCPU := make(map[string]int64)
+	usedMemory := make(map[string]int64)
+	adjustedRPS := make(map[string]float64)
+
 	config := readConfig()
 
 	nodeList := getNodeList()
 	podList := getPodList()
 
 	for _, namespace := range config.Namespaces {
+		nsName := namespace.Name
 
-		deploymentName := getDeploymentName(&config, namespace.Name)
-		deploymentLabels := getAntiAffinityLabels(&config, namespace.Name, deploymentName)
-		printDebug("Namespace: \"%s\"\nAllowed labels: %+v\nForbidden labels: %+v\n", namespace.Name, deploymentLabels.Allowed, deploymentLabels.Forbidden)
+		deploymentName := getDeploymentName(&config, nsName)
+		deploymentLabels := getAntiAffinityLabels(&config, nsName, deploymentName)
+		printDebug("Namespace: \"%s\"\nAllowed labels: %+v\nForbidden labels: %+v\n", nsName, deploymentLabels.Allowed, deploymentLabels.Forbidden)
 
-		allocatableCPU, allocatableMemory, allowedNodes := getAllocatableResources(deploymentLabels, &nodeList)
-		printDebug("Allocatable MilliCpuSum: %+v\nAllocatable MemSum: %+v\nAllowed nodes: %+v\n", allocatableCPU, allocatableMemory, allowedNodes)
+		allocatableCPU[nsName], allocatableMemory[nsName], allowedNodes = getAllocatableResources(deploymentLabels, &nodeList)
+		printDebug("Allocatable MilliCpuSum: %+v\nAllocatable MemSum: %+v\nAllowed nodes: %+v\n", allocatableCPU[nsName], allocatableMemory[nsName], allowedNodes)
 
-		totalRequestedCPU, totalRequestedMemory := getTotalRequestedResources(allowedNodes, &podList)
-		printDebug("Total Requested MilliCpuSum: %+v\nTotal Requested MemSum: %+v\n", totalRequestedCPU, totalRequestedMemory)
+		totalRequestedCPU[nsName], totalRequestedMemory[nsName] = getTotalRequestedResources(allowedNodes, &podList)
+		printDebug("Total Requested MilliCpuSum: %+v\nTotal Requested MemSum: %+v\n", totalRequestedCPU[nsName], totalRequestedMemory[nsName])
 
-		deploymentRequestedCPU, deploymentRequestedMemory := getDeploymentRequestedResources(namespace.Name, deploymentName)
-		printDebug("Deployment Requested MilliCpuSum: %+v\nDeployment Requested MemSum: %+v\n", deploymentRequestedCPU, deploymentRequestedMemory)
+		deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName] = getDeploymentRequestedResources(nsName, deploymentName)
+		printDebug("Deployment Requested MilliCpuSum: %+v\nDeployment Requested MemSum: %+v\n", deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName])
 
-		podsAmount := len(getPodList(namespace.Name).Items)
+		podsAmount := len(getPodList(nsName).Items)
 		printDebug("Amount of pods: %+v\n", podsAmount)
 
-		usedCPU, usedMemory := getUsedResources(namespace.Name, deploymentName)
-		printDebug("Used MilliCpuSum: %+v\nUsed MemSum: %+v\n", usedCPU, usedMemory)
+		usedCPU[nsName], usedMemory[nsName] = getUsedResources(nsName, deploymentName)
+		printDebug("Used MilliCpuSum: %+v\nUsed MemSum: %+v\n", usedCPU[nsName], usedMemory[nsName])
 
-		dependencies := getDependencies(&config, namespace.Name)
+		dependencies := getDependencies(&config, nsName)
 		printDebug("Dependencies: %+v\n", dependencies)
 
-		rawRPS := getRPS(&config, namespace.Name)
+		rawRPS := getRPS(&config, nsName)
 		printDebug("Raw RPS: %+v\n", rawRPS)
 
-		adjustedRPS := adjustRPS(&config, namespace.Name, rawRPS)
-		printDebug("Adjusted RPS: %+v\n", adjustedRPS)
+		adjustedRPS[nsName] = adjustRPS(&config, nsName, rawRPS)
+		printDebug("Adjusted RPS: %+v\n", adjustedRPS[nsName])
 
 		printDebug("\n")
 	}
