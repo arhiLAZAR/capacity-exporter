@@ -80,6 +80,8 @@ func main() {
 	deploymentRequestedMemory := make(map[string]int64)
 	usedCPU := make(map[string]int64)
 	usedMemory := make(map[string]int64)
+	reallyOccupiedCPU := make(map[string]int64)
+	reallyOccupiedMemory := make(map[string]int64)
 	adjustedRPS := make(map[string]int64)
 	ingressMultiplier := make(map[string]float64)
 
@@ -110,6 +112,9 @@ func main() {
 
 		usedCPU[nsName], usedMemory[nsName] = getUsedResources(nsName, deploymentName)
 		printDebug("Used MilliCpuSum: %+v\nUsed MemSum: %+v\n", usedCPU[nsName], usedMemory[nsName])
+
+		reallyOccupiedCPU[nsName], reallyOccupiedMemory[nsName] = calculateReallyOccupiedResources(usedCPU[nsName], usedMemory[nsName], deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName])
+		printDebug("Really Occupied MilliCpuSum: %+v\nReally Occupied MemSum: %+v\n", reallyOccupiedCPU[nsName], reallyOccupiedMemory[nsName])
 
 		dependencies := getDependencies(&config, nsName)
 		printDebug("Dependencies: %+v\n", dependencies)

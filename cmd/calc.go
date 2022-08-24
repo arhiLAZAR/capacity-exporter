@@ -2,6 +2,25 @@ package main
 
 import "math"
 
+// Return the bigger of used and requested CPU and Mem
+func calculateReallyOccupiedResources(usedCPU, usedMem, requestedCPU, requestedMem int64) (int64, int64) {
+	var reallyOccupiedCPU, reallyOccupiedMem int64
+
+	if usedCPU >= requestedCPU {
+		reallyOccupiedCPU = usedCPU
+	} else {
+		reallyOccupiedCPU = requestedCPU
+	}
+
+	if usedMem >= requestedMem {
+		reallyOccupiedMem = usedMem
+	} else {
+		reallyOccupiedMem = requestedMem
+	}
+
+	return reallyOccupiedCPU, reallyOccupiedMem
+}
+
 // Calculate ratio between every ingress' RPS and total RPS
 func calculateIngressMultiplier(config *configType, adjustedRPS map[string]int64) map[string]float64 {
 	var RPSSum int64
