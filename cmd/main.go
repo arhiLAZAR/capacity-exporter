@@ -81,6 +81,7 @@ func main() {
 	usedCPU := make(map[string]int64)
 	usedMemory := make(map[string]int64)
 	adjustedRPS := make(map[string]int64)
+	ingressMultiplier := make(map[string]float64)
 
 	config := readConfig()
 
@@ -121,6 +122,10 @@ func main() {
 
 		printDebug("\n")
 	}
+
+	printDebug("Final calculations!")
+	ingressMultiplier = calculateIngressMultiplier(&config, adjustedRPS)
+	printDebug("Ingress multiplier: %+v\n", ingressMultiplier)
 
 }
 
