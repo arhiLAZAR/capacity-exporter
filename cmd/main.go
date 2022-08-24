@@ -80,7 +80,7 @@ func main() {
 	deploymentRequestedMemory := make(map[string]int64)
 	usedCPU := make(map[string]int64)
 	usedMemory := make(map[string]int64)
-	adjustedRPS := make(map[string]float64)
+	adjustedRPS := make(map[string]int64)
 
 	config := readConfig()
 
@@ -103,6 +103,7 @@ func main() {
 		deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName] = getDeploymentRequestedResources(nsName, deploymentName)
 		printDebug("Deployment Requested MilliCpuSum: %+v\nDeployment Requested MemSum: %+v\n", deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName])
 
+		// TODO: mb add deploymentName check OR remove at all as unused
 		podsAmount := len(getPodList(nsName).Items)
 		printDebug("Amount of pods: %+v\n", podsAmount)
 
@@ -124,7 +125,7 @@ func main() {
 }
 
 // Get Requests Per Second for the specified namespace (from Prometheus)
-func getRPS(config *configType, namespace string) float64 {
+func getRPS(config *configType, namespace string) int64 {
 
 	promAddress := config.Prometheus.Address
 	promQuery := parsePromQuery(config, namespace)
@@ -134,7 +135,7 @@ func getRPS(config *configType, namespace string) float64 {
 	if len(promResponse) == 0 {
 		return 0
 	}
-	return promResponse[0]
+	return int64(promResponse[0])
 }
 
 func parsePromQuery(config *configType, targetNamespace string) string {
