@@ -128,7 +128,7 @@ func main() {
 		printDebug("\n")
 	}
 
-	printDebug("Final calculations!")
+	printDebug("Final calculations!\n")
 	ingressMultiplier = calculateIngressMultiplier(&config, adjustedRPS)
 	printDebug("Ingress multiplier: %+v\n", ingressMultiplier)
 
