@@ -215,7 +215,7 @@ func promRequest(address, query string, params ...promQueryParamsType) []float64
 		printDebug("Cannot get response from Prometheus for the following query:\n%+v\n", query)
 	}
 
-	printDebug("Prom respose: %+v\n", response)
+	printDebug("Prom response: %+v\n", response)
 	return response
 }
 
