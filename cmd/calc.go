@@ -2,7 +2,38 @@ package main
 
 import "math"
 
-// Return the bigger of used and requested CPU and Mem
+// Calculate resource summary of the namespace and its dependents (applying ingressMultiplier)
+func calculateFullChainResources(config *configType, namespace string, cpu, mem map[string]int64, ingressMultipliers map[string]float64) (int64, int64) {
+	var cpuSum, memSum int64
+
+	printDebug("Main Namespace, CPU: %+v, Mem: %+v\n", cpu[namespace], mem[namespace])
+
+	for _, currentNamespace := range config.Namespaces {
+		if currentNamespace.Name == namespace {
+			for _, dependantNamespace := range currentNamespace.DependsOnFullChain {
+				printDebug("Dependant Namespace: %+v, CPU: %+v, Mem: %+v\n", dependantNamespace, cpu[dependantNamespace], mem[dependantNamespace])
+				cpuSum += cpu[dependantNamespace]
+				memSum += mem[dependantNamespace]
+			}
+		}
+	}
+
+	// We add only a percent of shared resources...
+	multiplier, multiplierExists := ingressMultipliers[namespace]
+	if multiplierExists {
+		printDebug("Ingress Multiplier: %+v\n", multiplier)
+		cpuSum = int64(float64(cpuSum) * multiplier)
+		memSum = int64(float64(memSum) * multiplier)
+	}
+
+	// ...and 100% of frontend resource
+	cpuSum += cpu[namespace]
+	memSum += mem[namespace]
+
+	return cpuSum, memSum
+}
+
+// Return the biggest of used and requested CPU and Mem
 func calculateReallyOccupiedResources(usedCPU, usedMem, requestedCPU, requestedMem int64) (int64, int64) {
 	var reallyOccupiedCPU, reallyOccupiedMem int64
 
@@ -22,7 +53,7 @@ func calculateReallyOccupiedResources(usedCPU, usedMem, requestedCPU, requestedM
 }
 
 // Calculate ratio between every ingress' RPS and total RPS
-func calculateIngressMultiplier(config *configType, adjustedRPS map[string]int64) map[string]float64 {
+func calculateIngressMultipliers(config *configType, adjustedRPS map[string]int64) map[string]float64 {
 	var RPSSum int64
 	ingressMultiplier := make(map[string]float64)
 

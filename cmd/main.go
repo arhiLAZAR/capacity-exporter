@@ -82,15 +82,16 @@ func main() {
 	usedMemory := make(map[string]int64)
 	reallyOccupiedCPU := make(map[string]int64)
 	reallyOccupiedMemory := make(map[string]int64)
+	fullChainCPU := make(map[string]int64)
+	fullChainMemory := make(map[string]int64)
 	adjustedRPS := make(map[string]int64)
-	ingressMultiplier := make(map[string]float64)
 
 	config := readConfig()
 
 	nodeList := getNodeList()
 	podList := getPodList()
 
-	for _, namespace := range config.Namespaces {
+	for nsNum, namespace := range config.Namespaces {
 		nsName := namespace.Name
 
 		deploymentName := getDeploymentName(&config, nsName)
@@ -128,9 +129,19 @@ func main() {
 		printDebug("\n")
 	}
 
-	printDebug("Final calculations!\n")
-	ingressMultiplier = calculateIngressMultiplier(&config, adjustedRPS)
-	printDebug("Ingress multiplier: %+v\n", ingressMultiplier)
+	printDebug("\n###### FINAL CALCULATIONS! ######\n\n")
+	ingressMultipliers := calculateIngressMultipliers(&config, adjustedRPS)
+	printDebug("Ingress multipliers: %+v\n\n", ingressMultipliers)
+
+	for _, namespace := range config.Namespaces {
+		nsName := namespace.Name
+		printDebug("Namespace: \"%s\"\n", nsName)
+
+		fullChainCPU[nsName], fullChainMemory[nsName] = calculateFullChainResources(&config, nsName, reallyOccupiedCPU, reallyOccupiedMemory, ingressMultipliers)
+		printDebug("Full Chain MilliCpuSum: %+v\nFull Chain MemSum: %+v\n", fullChainCPU[nsName], fullChainMemory[nsName])
+
+		printDebug("\n")
+	}
 
 }
 
