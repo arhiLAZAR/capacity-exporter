@@ -116,8 +116,8 @@ func main() {
 		reallyOccupiedCPU[nsName], reallyOccupiedMemory[nsName] = calculateReallyOccupiedResources(usedCPU[nsName], usedMemory[nsName], deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName])
 		printDebug("Really Occupied MilliCpuSum: %+v\nReally Occupied MemSum: %+v\n", reallyOccupiedCPU[nsName], reallyOccupiedMemory[nsName])
 
-		dependencies := getDependencies(&config, nsName)
-		printDebug("Dependencies: %+v\n", dependencies)
+		config.Namespaces[nsNum].DependsOnFullChain = getDependencies(&config, nsName)
+		printDebug("Dependencies: %+v\n", config.Namespaces[nsNum].DependsOnFullChain)
 
 		rawRPS := getRPS(&config, nsName)
 		printDebug("Raw RPS: %+v\n", rawRPS)
