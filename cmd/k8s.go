@@ -104,7 +104,7 @@ func getAllocatableResources(deploymentLabels deploymentLabelsType, nodeList *v1
 
 	for _, node := range nodeList.Items {
 		if everythingAllowed && nothingForbidden {
-			printDebug("Sum all nodes\n")
+			printDebug("All nodes are allowed, none are forbidden\n")
 			thisNodeIsAllowed = true
 		} else {
 
