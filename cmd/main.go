@@ -319,13 +319,20 @@ func readConfig() configType {
 	return *config
 }
 
-func checkVariadic(slice []string) string {
+func checkVariadic(slice []string, elementNum ...int64) string {
 	var output string
+	var actualElementNum int64
+
+	if len(elementNum) == 0 {
+		actualElementNum = 0
+	} else {
+		actualElementNum = elementNum[0]
+	}
 
 	if len(slice) == 0 {
 		output = ""
 	} else {
-		output = slice[0]
+		output = slice[actualElementNum]
 	}
 
 	return output
