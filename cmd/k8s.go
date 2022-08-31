@@ -226,12 +226,27 @@ func getNodeList() v1.NodeList {
 }
 
 // Get a list of all or namespaced pods in the cluster
-func getPodList(namespace ...string) v1.PodList {
+// Deployment Name may be specified or not
+func getPodList(params ...string) v1.PodList {
 	clientset := getMetaV1Clientset()
-	actualNamespace := checkVariadic(namespace)
+	namespace := checkVariadic(params, 0)
+	deploymentName := checkVariadic(params, 1)
 
-	podList, err := clientset.CoreV1().Pods(actualNamespace).List(context.TODO(), metav1.ListOptions{})
+	podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
 	checkErr(err)
+
+	// Return only pods with the correct Deployment Name
+	if deploymentName != "" {
+		var tmpPodList []v1.Pod
+
+		for _, pod := range podList.Items {
+			if strings.HasPrefix(pod.Name, deploymentName) {
+				tmpPodList = append(tmpPodList, pod)
+			}
+		}
+
+		podList.Items = tmpPodList
+	}
 
 	return *podList
 }

@@ -107,8 +107,7 @@ func main() {
 		deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName] = getDeploymentRequestedResources(nsName, deploymentName)
 		printDebug("Deployment Requested MilliCpuSum: %+v\nDeployment Requested MemSum: %+v\n", deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName])
 
-		// TODO: mb add deploymentName check OR remove at all as unused
-		podsAmount := len(getPodList(nsName).Items)
+		podsAmount := len(getPodList(nsName, deploymentName).Items)
 		printDebug("Amount of pods: %+v\n", podsAmount)
 
 		usedCPU[nsName], usedMemory[nsName] = getUsedResources(nsName, deploymentName)
