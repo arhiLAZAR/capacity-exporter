@@ -87,6 +87,8 @@ func main() {
 	adjustedRPS := make(map[string]int64)
 	podsAmount := make(map[string]int)
 	clusterCanHandleAdditionalPods := make(map[string]int64)
+	oneRPSCostCPU := make(map[string]float64)
+	oneRPSCostMemory := make(map[string]float64)
 
 	config := readConfig()
 
@@ -143,6 +145,9 @@ func main() {
 
 		clusterCanHandleAdditionalPods[nsName] = calculateClusterCanHandlePods(allocatableCPU[nsName], allocatableMemory[nsName], fullChainCPU[nsName], fullChainMemory[nsName], podsAmount[nsName])
 		printDebug("Cluster can handle %+v additional pods\n", clusterCanHandleAdditionalPods[nsName])
+
+		oneRPSCostCPU[nsName], oneRPSCostMemory[nsName] = calculateOneRPSCost(fullChainCPU[nsName], fullChainMemory[nsName], adjustedRPS[nsName])
+		printDebug("One RPS costs: %+v MilliCPU, %+v Memory (bytes)\n", oneRPSCostCPU[nsName], oneRPSCostMemory[nsName])
 
 		printDebug("\n")
 	}

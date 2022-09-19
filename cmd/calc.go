@@ -2,6 +2,19 @@ package main
 
 import "math"
 
+// Calculate how much CPU and Memory one RPS costs
+func calculateOneRPSCost(fullChainCPU, fullChainMemory, adjustedRPS int64) (float64, float64) {
+
+	if adjustedRPS == 0 {
+		return 0, 0
+	}
+
+	oneRPSCostCPU := float64(fullChainCPU) / float64(adjustedRPS)
+	oneRPSCostMemory := float64(fullChainMemory) / float64(adjustedRPS)
+
+	return oneRPSCostCPU, oneRPSCostMemory
+}
+
 // Calculate how many additional pods can the cluster handle, based on CPU and Memory occupied by all pod's dependencies
 func calculateClusterCanHandlePods(allocatableCPU, allocatableMemory, fullChainCPU, fullChainMemory int64, podsAmount int) int64 {
 	var clusterCanHandlePods, clusterCanHandleAdditionalPods int64
