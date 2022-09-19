@@ -2,6 +2,33 @@ package main
 
 import "math"
 
+// Calculate how many additional pods can the cluster handle, based on CPU and Memory occupied by all pod's dependencies
+func calculateClusterCanHandlePods(allocatableCPU, allocatableMemory, fullChainCPU, fullChainMemory int64, podsAmount int) int64 {
+	var clusterCanHandlePods, clusterCanHandleAdditionalPods int64
+
+	if podsAmount == 0 {
+		clusterCanHandleAdditionalPods = 0
+	} else {
+		fullChainCPUPerPod := fullChainCPU / int64(podsAmount)
+		clusterCanHandlePodsCPU := allocatableCPU / fullChainCPUPerPod
+
+		fullChainMemoryPerPod := fullChainMemory / int64(podsAmount)
+		clusterCanHandlePodsMemory := allocatableMemory / fullChainMemoryPerPod
+
+		printDebug("Cluster can handle pods (AT ALL) per CPU: %+v, per Memory: %+v\n", clusterCanHandlePodsCPU, clusterCanHandlePodsMemory)
+
+		if clusterCanHandlePodsCPU <= clusterCanHandlePodsMemory {
+			clusterCanHandlePods = clusterCanHandlePodsCPU
+		} else {
+			clusterCanHandlePods = clusterCanHandlePodsMemory
+		}
+
+		clusterCanHandleAdditionalPods = clusterCanHandlePods - int64(podsAmount)
+	}
+
+	return clusterCanHandleAdditionalPods
+}
+
 // Calculate resource summary of the namespace and its dependents (applying ingressMultiplier)
 func calculateFullChainResources(config *configType, namespace string, cpu, mem map[string]int64, ingressMultipliers map[string]float64) (int64, int64) {
 	var cpuSum, memSum int64

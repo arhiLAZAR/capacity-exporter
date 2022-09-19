@@ -85,6 +85,8 @@ func main() {
 	fullChainCPU := make(map[string]int64)
 	fullChainMemory := make(map[string]int64)
 	adjustedRPS := make(map[string]int64)
+	podsAmount := make(map[string]int)
+	clusterCanHandleAdditionalPods := make(map[string]int64)
 
 	config := readConfig()
 
@@ -107,8 +109,8 @@ func main() {
 		deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName] = getDeploymentRequestedResources(nsName, deploymentName)
 		printDebug("Deployment Requested MilliCpuSum: %+v\nDeployment Requested MemSum: %+v\n", deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName])
 
-		podsAmount := len(getPodList(nsName, deploymentName).Items)
-		printDebug("Amount of pods: %+v\n", podsAmount)
+		podsAmount[nsName] = len(getPodList(nsName, deploymentName).Items)
+		printDebug("Amount of pods: %+v\n", podsAmount[nsName])
 
 		usedCPU[nsName], usedMemory[nsName] = getUsedResources(nsName, deploymentName)
 		printDebug("Used MilliCpuSum: %+v\nUsed MemSum: %+v\n", usedCPU[nsName], usedMemory[nsName])
@@ -138,6 +140,9 @@ func main() {
 
 		fullChainCPU[nsName], fullChainMemory[nsName] = calculateFullChainResources(&config, nsName, reallyOccupiedCPU, reallyOccupiedMemory, ingressMultipliers)
 		printDebug("Full Chain MilliCpuSum: %+v\nFull Chain MemSum: %+v\n", fullChainCPU[nsName], fullChainMemory[nsName])
+
+		clusterCanHandleAdditionalPods[nsName] = calculateClusterCanHandlePods(allocatableCPU[nsName], allocatableMemory[nsName], fullChainCPU[nsName], fullChainMemory[nsName], podsAmount[nsName])
+		printDebug("Cluster can handle %+v additional pods\n", clusterCanHandleAdditionalPods[nsName])
 
 		printDebug("\n")
 	}
