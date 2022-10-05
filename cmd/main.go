@@ -8,6 +8,7 @@ import (
 
 	promapi "github.com/prometheus/client_golang/api"
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
@@ -15,9 +16,12 @@ import (
 )
 
 const (
-	defaultConfigPath        = "/app/config.yaml"
-	DEBUG                    = true
-	prometheusDefaultTimeout = 10
+	defaultConfigPath             = "/app/config.yaml"
+	DEBUG                         = true // TODO: read DEBUG var from ENV
+	prometheusDefaultTimeout      = 10
+	exporterNamespace             = "capacity"
+	exporterDefaultPort           = 9301
+	exporterDefaultScrapeInterval = 10
 )
 
 type configType struct {
@@ -25,6 +29,12 @@ type configType struct {
 		Address       string
 		Timeout       int64
 		QueryTemplate string `yaml:"query_template"`
+	}
+
+	Exporter struct {
+		Host            string
+		Port            int64
+		MetricsEndpoint string `yaml:"metrics_endpoint"`
 	}
 
 	Affinity []struct {
@@ -90,67 +100,99 @@ func main() {
 	oneRPSCostCPU := make(map[string]float64)
 	oneRPSCostMemory := make(map[string]float64)
 
+	metricRPSCostCPU := make(map[string]prometheus.Gauge)
+	metricRPSCostMemory := make(map[string]prometheus.Gauge)
+	metricPodAmount := make(map[string]prometheus.Gauge)
+	metricClusterCanHandleAdditionalPods := make(map[string]prometheus.Gauge)
+
 	config := readConfig()
 
-	nodeList := getNodeList()
-	podList := getPodList()
+	// Create Prometheus metrics
+	for _, app := range getAllNamespaces(&config) {
+		labels := map[string]string{"app": app}
 
-	for nsNum, namespace := range config.Namespaces {
-		nsName := namespace.Name
-
-		deploymentName := getDeploymentName(&config, nsName)
-		deploymentLabels := getAntiAffinityLabels(&config, nsName, deploymentName)
-		printDebug("Namespace: \"%s\"\nAllowed labels: %+v\nForbidden labels: %+v\n", nsName, deploymentLabels.Allowed, deploymentLabels.Forbidden)
-
-		allocatableCPU[nsName], allocatableMemory[nsName], allowedNodes = getAllocatableResources(deploymentLabels, &nodeList)
-		printDebug("Allocatable MilliCpuSum: %+v\nAllocatable MemSum: %+v\nAllowed nodes: %+v\n", allocatableCPU[nsName], allocatableMemory[nsName], allowedNodes)
-
-		totalRequestedCPU[nsName], totalRequestedMemory[nsName] = getTotalRequestedResources(allowedNodes, &podList)
-		printDebug("Total Requested MilliCpuSum: %+v\nTotal Requested MemSum: %+v\n", totalRequestedCPU[nsName], totalRequestedMemory[nsName])
-
-		deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName] = getDeploymentRequestedResources(nsName, deploymentName)
-		printDebug("Deployment Requested MilliCpuSum: %+v\nDeployment Requested MemSum: %+v\n", deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName])
-
-		podsAmount[nsName] = len(getPodList(nsName, deploymentName).Items)
-		printDebug("Amount of pods: %+v\n", podsAmount[nsName])
-
-		usedCPU[nsName], usedMemory[nsName] = getUsedResources(nsName, deploymentName)
-		printDebug("Used MilliCpuSum: %+v\nUsed MemSum: %+v\n", usedCPU[nsName], usedMemory[nsName])
-
-		reallyOccupiedCPU[nsName], reallyOccupiedMemory[nsName] = calculateReallyOccupiedResources(usedCPU[nsName], usedMemory[nsName], deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName])
-		printDebug("Really Occupied MilliCpuSum: %+v\nReally Occupied MemSum: %+v\n", reallyOccupiedCPU[nsName], reallyOccupiedMemory[nsName])
-
-		config.Namespaces[nsNum].DependsOnFullChain = getDependencies(&config, nsName)
-		printDebug("Dependencies: %+v\n", config.Namespaces[nsNum].DependsOnFullChain)
-
-		rawRPS := getRPS(&config, nsName)
-		printDebug("Raw RPS: %+v\n", rawRPS)
-
-		adjustedRPS[nsName] = adjustRPS(&config, nsName, rawRPS)
-		printDebug("Adjusted RPS: %+v\n", adjustedRPS[nsName])
-
-		printDebug("\n")
+		metricRPSCostCPU[app] = createGauge("rps_cost_cpu", "How many milliCPUs costs one RPS", labels)
+		metricRPSCostMemory[app] = createGauge("rps_cost_mem", "How many Memory bytes costs one RPS", labels)
+		metricPodAmount[app] = createGauge("pod_amount", "Current amount of pods", labels)
+		metricClusterCanHandleAdditionalPods[app] = createGauge("cluster_can_handle_additional_pods", "How many additional pods can the current cluster handle", labels)
 	}
 
-	printDebug("\n###### FINAL CALCULATIONS! ######\n\n")
-	ingressMultipliers := calculateIngressMultipliers(&config, adjustedRPS)
-	printDebug("Ingress multipliers: %+v\n\n", ingressMultipliers)
+	go func() {
+		for {
+			nodeList := getNodeList()
+			podList := getPodList()
 
-	for _, namespace := range config.Namespaces {
-		nsName := namespace.Name
-		printDebug("Namespace: \"%s\"\n", nsName)
+			for nsNum, namespace := range config.Namespaces {
+				nsName := namespace.Name
 
-		fullChainCPU[nsName], fullChainMemory[nsName] = calculateFullChainResources(&config, nsName, reallyOccupiedCPU, reallyOccupiedMemory, ingressMultipliers)
-		printDebug("Full Chain MilliCpuSum: %+v\nFull Chain MemSum: %+v\n", fullChainCPU[nsName], fullChainMemory[nsName])
+				deploymentName := getDeploymentName(&config, nsName)
+				deploymentLabels := getAntiAffinityLabels(&config, nsName, deploymentName)
+				printDebug("Namespace: \"%s\"\nAllowed labels: %+v\nForbidden labels: %+v\n", nsName, deploymentLabels.Allowed, deploymentLabels.Forbidden)
 
-		clusterCanHandleAdditionalPods[nsName] = calculateClusterCanHandlePods(allocatableCPU[nsName], allocatableMemory[nsName], fullChainCPU[nsName], fullChainMemory[nsName], podsAmount[nsName])
-		printDebug("Cluster can handle %+v additional pods\n", clusterCanHandleAdditionalPods[nsName])
+				allocatableCPU[nsName], allocatableMemory[nsName], allowedNodes = getAllocatableResources(deploymentLabels, &nodeList)
+				printDebug("Allocatable MilliCpuSum: %+v\nAllocatable MemSum: %+v\nAllowed nodes: %+v\n", allocatableCPU[nsName], allocatableMemory[nsName], allowedNodes)
 
-		oneRPSCostCPU[nsName], oneRPSCostMemory[nsName] = calculateOneRPSCost(fullChainCPU[nsName], fullChainMemory[nsName], adjustedRPS[nsName])
-		printDebug("One RPS costs: %+v MilliCPU, %+v Memory (bytes)\n", oneRPSCostCPU[nsName], oneRPSCostMemory[nsName])
+				totalRequestedCPU[nsName], totalRequestedMemory[nsName] = getTotalRequestedResources(allowedNodes, &podList)
+				printDebug("Total Requested MilliCpuSum: %+v\nTotal Requested MemSum: %+v\n", totalRequestedCPU[nsName], totalRequestedMemory[nsName])
 
-		printDebug("\n")
-	}
+				deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName] = getDeploymentRequestedResources(nsName, deploymentName)
+				printDebug("Deployment Requested MilliCpuSum: %+v\nDeployment Requested MemSum: %+v\n", deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName])
+
+				podsAmount[nsName] = len(getPodList(nsName, deploymentName).Items)
+				printDebug("Amount of pods: %+v\n", podsAmount[nsName])
+
+				usedCPU[nsName], usedMemory[nsName] = getUsedResources(nsName, deploymentName)
+				printDebug("Used MilliCpuSum: %+v\nUsed MemSum: %+v\n", usedCPU[nsName], usedMemory[nsName])
+
+				reallyOccupiedCPU[nsName], reallyOccupiedMemory[nsName] = calculateReallyOccupiedResources(usedCPU[nsName], usedMemory[nsName], deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName])
+				printDebug("Really Occupied MilliCpuSum: %+v\nReally Occupied MemSum: %+v\n", reallyOccupiedCPU[nsName], reallyOccupiedMemory[nsName])
+
+				config.Namespaces[nsNum].DependsOnFullChain = getDependencies(&config, nsName)
+				printDebug("Dependencies: %+v\n", config.Namespaces[nsNum].DependsOnFullChain)
+
+				rawRPS := getRPS(&config, nsName)
+				printDebug("Raw RPS: %+v\n", rawRPS)
+
+				adjustedRPS[nsName] = adjustRPS(&config, nsName, rawRPS)
+				printDebug("Adjusted RPS: %+v\n", adjustedRPS[nsName])
+
+				printDebug("\n")
+			}
+
+			printDebug("\n###### FINAL CALCULATIONS! ######\n\n")
+			ingressMultipliers := calculateIngressMultipliers(&config, adjustedRPS)
+			printDebug("Ingress multipliers: %+v\n\n", ingressMultipliers)
+
+			for _, namespace := range config.Namespaces {
+				nsName := namespace.Name
+				printDebug("Namespace: \"%s\"\n", nsName)
+
+				fullChainCPU[nsName], fullChainMemory[nsName] = calculateFullChainResources(&config, nsName, reallyOccupiedCPU, reallyOccupiedMemory, ingressMultipliers)
+				printDebug("Full Chain MilliCpuSum: %+v\nFull Chain MemSum: %+v\n", fullChainCPU[nsName], fullChainMemory[nsName])
+
+				clusterCanHandleAdditionalPods[nsName] = calculateClusterCanHandlePods(allocatableCPU[nsName], allocatableMemory[nsName], fullChainCPU[nsName], fullChainMemory[nsName], podsAmount[nsName])
+				printDebug("Cluster can handle %+v additional pods\n", clusterCanHandleAdditionalPods[nsName])
+
+				oneRPSCostCPU[nsName], oneRPSCostMemory[nsName] = calculateOneRPSCost(fullChainCPU[nsName], fullChainMemory[nsName], adjustedRPS[nsName])
+				printDebug("One RPS costs: %+v MilliCPU, %+v Memory (bytes)\n", oneRPSCostCPU[nsName], oneRPSCostMemory[nsName])
+
+				printDebug("\n")
+
+				// Set Prometheus metrics
+				metricRPSCostCPU[nsName].Set(oneRPSCostCPU[nsName])
+				metricRPSCostMemory[nsName].Set(oneRPSCostMemory[nsName])
+				metricPodAmount[nsName].Set(float64(podsAmount[nsName]))
+				metricClusterCanHandleAdditionalPods[nsName].Set(float64(clusterCanHandleAdditionalPods[nsName]))
+
+			}
+
+			// TODO: read exporterScrapeInterval from config
+			time.Sleep(exporterDefaultScrapeInterval * time.Second)
+
+		}
+	}()
+
+	serveExporter(&config)
 
 }
 

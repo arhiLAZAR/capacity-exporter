@@ -104,7 +104,7 @@ func getAllocatableResources(deploymentLabels deploymentLabelsType, nodeList *v1
 
 	for _, node := range nodeList.Items {
 		if everythingAllowed && nothingForbidden {
-			printDebug("All nodes are allowed, none are forbidden\n")
+			printDebug("All nodes are allowed, none are forbidden. ")
 			thisNodeIsAllowed = true
 		} else {
 
@@ -129,7 +129,7 @@ func getAllocatableResources(deploymentLabels deploymentLabelsType, nodeList *v1
 		}
 
 		if thisNodeIsAllowed {
-			printDebug("The node %+v is allowed!\n", node.Name)
+			printDebug("Node \"%+v\" is allowed!\n", node.Name)
 
 			cpuSum += node.Status.Capacity.Cpu().MilliValue()
 			memSum += node.Status.Capacity.Memory().Value()
