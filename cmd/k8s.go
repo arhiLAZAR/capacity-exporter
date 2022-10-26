@@ -129,12 +129,17 @@ func getAllocatableResources(namespace, deploymentName string, deploymentLabels 
 		}
 
 		if thisNodeIsAllowed {
+			printDebug("Node \"%+v\" is allowed ", node.Name)
+
 			if !nodeIsTainted(namespace, deploymentName, node.Spec.Taints) {
-				printDebug("Node \"%+v\" is allowed!\n", node.Name)
+				printDebug("and not tainted!\n")
 
 				cpuSum += node.Status.Capacity.Cpu().MilliValue()
 				memSum += node.Status.Capacity.Memory().Value()
 				allowedNodes = append(allowedNodes, node.Name)
+
+			} else {
+				printDebug("BUT tainted!\n")
 			}
 		}
 
