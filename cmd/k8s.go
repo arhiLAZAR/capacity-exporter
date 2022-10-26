@@ -85,7 +85,7 @@ func getDeploymentRequestedResources(namespace, deploymentName string) (int64, i
 // Get total amount of allocatable memory and cpu for nodes with relevant labels in the specific namespace
 // If allowed labels are specified then count the node only if the labels match
 // If forbidden labels are specified then count the node only if the labels do not match
-func getAllocatableResources(deploymentLabels deploymentLabelsType, nodeList *v1.NodeList) (int64, int64, []string) {
+func getAllocatableResources(namespace, deploymentName string, deploymentLabels deploymentLabelsType, nodeList *v1.NodeList) (int64, int64, []string) {
 	var everythingAllowed, nothingForbidden, thisNodeIsAllowed, thisNodeIsForbidden bool
 	var cpuSum, memSum int64
 	var allowedNodes []string
@@ -129,11 +129,13 @@ func getAllocatableResources(deploymentLabels deploymentLabelsType, nodeList *v1
 		}
 
 		if thisNodeIsAllowed {
-			printDebug("Node \"%+v\" is allowed!\n", node.Name)
+			if !nodeIsTainted(namespace, deploymentName, node.Spec.Taints) {
+				printDebug("Node \"%+v\" is allowed!\n", node.Name)
 
-			cpuSum += node.Status.Capacity.Cpu().MilliValue()
-			memSum += node.Status.Capacity.Memory().Value()
-			allowedNodes = append(allowedNodes, node.Name)
+				cpuSum += node.Status.Capacity.Cpu().MilliValue()
+				memSum += node.Status.Capacity.Memory().Value()
+				allowedNodes = append(allowedNodes, node.Name)
+			}
 		}
 
 	}
@@ -161,6 +163,41 @@ func labelsAreEqual(nodeLabels map[string]string, deploymentLabels []allowedAndF
 	}
 
 	return labelsAreEqual
+}
+
+// Check if the deployment tolerates to all node's taints
+func nodeIsTainted(namespace, deploymentName string, nodeTaints []v1.Taint) bool {
+	nodeIsTainted := false
+
+	if len(nodeTaints) > 0 {
+		deploymentList := getDeploymentList(namespace)
+		if len(deploymentList.Items) > 0 {
+			for _, taint := range nodeTaints {
+				nodeIsTainted = true
+
+				for _, deployment := range deploymentList.Items {
+					if deployment.Name == deploymentName {
+
+						for _, toleration := range deployment.Spec.Template.Spec.Tolerations {
+							if toleration.Key == taint.Key {
+								if toleration.Operator == "Exists" || (toleration.Operator == "Equal" && toleration.Value == taint.Value) {
+									nodeIsTainted = false
+								}
+							}
+						}
+
+						if nodeIsTainted {
+							return nodeIsTainted
+						}
+
+					}
+				}
+
+			}
+		}
+	}
+
+	return nodeIsTainted
 }
 
 // Check if the deployment in the specified namespace has some affinities
