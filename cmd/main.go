@@ -94,6 +94,7 @@ func main() {
 	reallyOccupiedMemory := make(map[string]int64)
 	fullChainCPU := make(map[string]int64)
 	fullChainMemory := make(map[string]int64)
+	rawRPS := make(map[string]int64)
 	adjustedRPS := make(map[string]int64)
 	podsAmount := make(map[string]int)
 	clusterCanHandleAdditionalPods := make(map[string]int64)
@@ -104,6 +105,8 @@ func main() {
 	metricRPSCostMemory := make(map[string]prometheus.Gauge)
 	metricPodAmount := make(map[string]prometheus.Gauge)
 	metricClusterCanHandleAdditionalPods := make(map[string]prometheus.Gauge)
+	metricRawRPS := make(map[string]prometheus.Gauge)
+	metricAdjustedRPS := make(map[string]prometheus.Gauge)
 
 	config := readConfig()
 
@@ -115,6 +118,8 @@ func main() {
 		metricRPSCostMemory[app] = createGauge("rps_cost_mem", "How many Memory bytes costs one RPS", labels)
 		metricPodAmount[app] = createGauge("pod_amount", "Current amount of pods", labels)
 		metricClusterCanHandleAdditionalPods[app] = createGauge("cluster_can_handle_additional_pods", "How many additional pods can the current cluster handle", labels)
+		metricRawRPS[app] = createGauge("rps_raw", "Raw RPS from Prometheus", labels)
+		metricAdjustedRPS[app] = createGauge("rps_adjusted", "Adjusted RPS with multipliers from config", labels)
 	}
 
 	go func() {
@@ -150,10 +155,10 @@ func main() {
 				config.Namespaces[nsNum].DependsOnFullChain = getDependencies(&config, nsName)
 				printDebug("Dependencies: %+v\n", config.Namespaces[nsNum].DependsOnFullChain)
 
-				rawRPS := getRPS(&config, nsName)
-				printDebug("Raw RPS: %+v\n", rawRPS)
+				rawRPS[nsName] = getRPS(&config, nsName)
+				printDebug("Raw RPS: %+v\n", rawRPS[nsName])
 
-				adjustedRPS[nsName] = adjustRPS(&config, nsName, rawRPS)
+				adjustedRPS[nsName] = adjustRPS(&config, nsName, rawRPS[nsName])
 				printDebug("Adjusted RPS: %+v\n", adjustedRPS[nsName])
 
 				printDebug("\n")
@@ -183,7 +188,8 @@ func main() {
 				metricRPSCostMemory[nsName].Set(oneRPSCostMemory[nsName])
 				metricPodAmount[nsName].Set(float64(podsAmount[nsName]))
 				metricClusterCanHandleAdditionalPods[nsName].Set(float64(clusterCanHandleAdditionalPods[nsName]))
-
+				metricRawRPS[nsName].Set(float64(rawRPS[nsName]))
+				metricAdjustedRPS[nsName].Set(float64(adjustedRPS[nsName]))
 			}
 
 			// TODO: read exporterScrapeInterval from config
