@@ -17,10 +17,10 @@ func calculateOneRPSCost(fullChainCPU, fullChainMemory, adjustedRPS int64) (floa
 
 // Calculate how many additional pods can the cluster handle, based on CPU and Memory occupied by all pod's dependencies
 func calculateClusterCanHandlePods(freeCPU, freeMemory, fullChainCPU, fullChainMemory int64, podsAmount int) int64 {
-	var clusterCanHandlePods, clusterCanHandleAdditionalPods int64
+	var clusterCanHandlePods int64
 
 	if podsAmount == 0 {
-		clusterCanHandleAdditionalPods = 0
+		clusterCanHandlePods = 0
 	} else {
 		fullChainCPUPerPod := fullChainCPU / int64(podsAmount)
 		clusterCanHandlePodsCPU := freeCPU / fullChainCPUPerPod
@@ -28,18 +28,15 @@ func calculateClusterCanHandlePods(freeCPU, freeMemory, fullChainCPU, fullChainM
 		fullChainMemoryPerPod := fullChainMemory / int64(podsAmount)
 		clusterCanHandlePodsMemory := freeMemory / fullChainMemoryPerPod
 
-		printDebug("Cluster can handle pods (AT ALL) per CPU: %+v, per Memory: %+v\n", clusterCanHandlePodsCPU, clusterCanHandlePodsMemory)
-
 		if clusterCanHandlePodsCPU <= clusterCanHandlePodsMemory {
 			clusterCanHandlePods = clusterCanHandlePodsCPU
 		} else {
 			clusterCanHandlePods = clusterCanHandlePodsMemory
 		}
 
-		clusterCanHandleAdditionalPods = clusterCanHandlePods - int64(podsAmount)
 	}
 
-	return clusterCanHandleAdditionalPods
+	return clusterCanHandlePods
 }
 
 // Calculate resource summary of the namespace and its dependents (applying ingressMultiplier)
