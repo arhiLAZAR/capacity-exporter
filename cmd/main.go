@@ -135,8 +135,8 @@ func main() {
 				deploymentLabels := getAntiAffinityLabels(&config, nsName, deploymentName)
 				printDebug("Namespace: \"%s\"\nAllowed labels: %+v\nForbidden labels: %+v\n", nsName, deploymentLabels.Allowed, deploymentLabels.Forbidden)
 
-				freeCPU[nsName], freeMemory[nsName], allowedNodes = getFreeResources(nsName, deploymentName, deploymentLabels, &nodeList, &podList)
-				printDebug("Free MilliCpuSum (for namespace): %+v\nFree MemSum (for namespace): %+v\nAllowed nodes: %+v\n", freeCPU[nsName], freeMemory[nsName], allowedNodes)
+				freeCPU[nsName], freeMemory[nsName], allowedNodes = getFreeResources(nsName, deploymentName, deploymentLabels, &nodeList, &podList, &podMetricsList)
+				printDebug("Free MilliCpuSum (for namespace \"%+v\"): %+v\nFree MemSum (for namespace \"%+v\"): %+v\nAllowed nodes: %+v\n", nsName, freeCPU[nsName], nsName, freeMemory[nsName], allowedNodes)
 
 				totalRequestedCPU[nsName], totalRequestedMemory[nsName] = getTotalRequestedResources(allowedNodes, &podList)
 				printDebug("Total Requested MilliCpuSum: %+v\nTotal Requested MemSum: %+v\n", totalRequestedCPU[nsName], totalRequestedMemory[nsName])

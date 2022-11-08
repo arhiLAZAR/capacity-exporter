@@ -83,7 +83,7 @@ func getDeploymentRequestedResources(namespace, deploymentName string) (int64, i
 // Get total amount of free (allocatable minus really occupied) memory and cpu for nodes with relevant labels in the specific namespace
 // If allowed labels are specified then count the node only if the labels match
 // If forbidden labels are specified then count the node only if the labels do not match
-func getFreeResources(namespace, deploymentName string, deploymentLabels deploymentLabelsType, nodeList *v1.NodeList, podList *v1.PodList) (int64, int64, []string) {
+func getFreeResources(namespace, deploymentName string, deploymentLabels deploymentLabelsType, nodeList *v1.NodeList, podList *v1.PodList, podMetricsList *v1beta1.PodMetricsList) (int64, int64, []string) {
 	var everythingAllowed, nothingForbidden, thisNodeIsAllowed, thisNodeIsForbidden bool
 	var freeCPUSum, freeMemSum int64
 	var allowedNodes []string
@@ -132,7 +132,7 @@ func getFreeResources(namespace, deploymentName string, deploymentLabels deploym
 			if !nodeIsTainted(namespace, deploymentName, node.Spec.Taints) {
 				printDebug("and not tainted!\n")
 
-				reallyOccupiedCPU, reallyOccupiedMem := getNodeReallyOccupiedResources(node.Name, podList)
+				reallyOccupiedCPU, reallyOccupiedMem := getNodeReallyOccupiedResources(node.Name, podList, podMetricsList)
 				allocatableCPU := node.Status.Capacity.Cpu().MilliValue()
 				allocatableMem := node.Status.Capacity.Memory().Value()
 
@@ -221,15 +221,10 @@ func nodeIsTainted(namespace, deploymentName string, nodeTaints []v1.Taint) bool
 }
 
 // Calculate how much resources if really used on the node
-func getNodeReallyOccupiedResources(nodeName string, podAPIList *v1.PodList) (int64, int64) {
+func getNodeReallyOccupiedResources(nodeName string, podAPIList *v1.PodList, podMetricsList *v1beta1.PodMetricsList) (int64, int64) {
 	var requestedCPUSumPod, requestedMemSumPod, usedCPUSumPod, usedMemSumPod, reallyOccupiedCPUSumNode, reallyOccupiedMemSumNode int64
 
 	printDebug("Really Occupied Resources on node %+v:\n", nodeName)
-
-	clientset := getMetricsClientset()
-
-	podMetricsList, err := clientset.MetricsV1beta1().PodMetricses("").List(context.TODO(), metav1.ListOptions{})
-	checkErr(err)
 
 	for _, podAPI := range podAPIList.Items {
 		if podAPI.Spec.NodeName == nodeName {
