@@ -126,6 +126,7 @@ func main() {
 		for {
 			nodeList := getNodeList()
 			podList := getPodList()
+			podMetricsList := getPodMetricsList()
 
 			for nsNum, namespace := range config.Namespaces {
 				nsName := namespace.Name

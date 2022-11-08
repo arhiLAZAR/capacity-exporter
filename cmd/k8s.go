@@ -9,17 +9,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	metricsv "k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
 // Count amount of used Cpu and Memory for specified namespace and deployment
 func getUsedResources(namespace string, deploymentName ...string) (int64, int64) {
 	var cpuSum, memSum int64
-	clientset := getMetricsClientset()
 	actualDeploymentName := checkVariadic(deploymentName)
-
-	podMetricsList, err := clientset.MetricsV1beta1().PodMetricses(namespace).List(context.TODO(), metav1.ListOptions{})
-	checkErr(err)
+	podMetricsList := getPodMetricsList(namespace)
 
 	for _, pod := range podMetricsList.Items {
 		if strings.HasPrefix(pod.Name, actualDeploymentName) {
@@ -363,6 +361,15 @@ func getPodList(params ...string) v1.PodList {
 	}
 
 	return *podList
+}
+
+func getPodMetricsList(namespace ...string) v1beta1.PodMetricsList {
+	clientset := getMetricsClientset()
+	actualNamespace := checkVariadic(namespace)
+	podMetricsList, err := clientset.MetricsV1beta1().PodMetricses(actualNamespace).List(context.TODO(), metav1.ListOptions{})
+	checkErr(err)
+
+	return *podMetricsList
 }
 
 func getDeploymentList(namespace ...string) appsV1.DeploymentList {
