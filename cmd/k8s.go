@@ -82,12 +82,12 @@ func getDeploymentRequestedResources(namespace, deploymentName string) (int64, i
 	return cpuSum, memSum
 }
 
-// Get total amount of allocatable memory and cpu for nodes with relevant labels in the specific namespace
+// Get total amount of free (allocatable minus really occupied) memory and cpu for nodes with relevant labels in the specific namespace
 // If allowed labels are specified then count the node only if the labels match
 // If forbidden labels are specified then count the node only if the labels do not match
-func getAllocatableResources(namespace, deploymentName string, deploymentLabels deploymentLabelsType, nodeList *v1.NodeList) (int64, int64, []string) {
+func getFreeResources(namespace, deploymentName string, deploymentLabels deploymentLabelsType, nodeList *v1.NodeList, podList *v1.PodList) (int64, int64, []string) {
 	var everythingAllowed, nothingForbidden, thisNodeIsAllowed, thisNodeIsForbidden bool
-	var cpuSum, memSum int64
+	var freeCPUSum, freeMemSum int64
 	var allowedNodes []string
 
 	if len(deploymentLabels.Allowed) > 0 {
@@ -134,8 +134,20 @@ func getAllocatableResources(namespace, deploymentName string, deploymentLabels 
 			if !nodeIsTainted(namespace, deploymentName, node.Spec.Taints) {
 				printDebug("and not tainted!\n")
 
-				cpuSum += node.Status.Capacity.Cpu().MilliValue()
-				memSum += node.Status.Capacity.Memory().Value()
+				reallyOccupiedCPU, reallyOccupiedMem := getNodeReallyOccupiedResources(node.Name, podList)
+				allocatableCPU := node.Status.Capacity.Cpu().MilliValue()
+				allocatableMem := node.Status.Capacity.Memory().Value()
+
+				printDebug("Allocatable MilliCpuSum: %+v\nAllocatable MemSum: %+v\n", allocatableCPU, allocatableMem)
+
+				if allocatableCPU > reallyOccupiedCPU {
+					freeCPUSum = freeCPUSum + allocatableCPU - reallyOccupiedCPU
+				}
+
+				if allocatableMem > reallyOccupiedMem {
+					freeMemSum = freeMemSum + allocatableMem - reallyOccupiedMem
+				}
+
 				allowedNodes = append(allowedNodes, node.Name)
 
 			} else {
@@ -145,7 +157,7 @@ func getAllocatableResources(namespace, deploymentName string, deploymentLabels 
 
 	}
 
-	return cpuSum, memSum, allowedNodes
+	return freeCPUSum, freeMemSum, allowedNodes
 }
 
 func labelsAreEqual(nodeLabels map[string]string, deploymentLabels []allowedAndForbiddenLabelsType, checkType ...string) bool {
@@ -203,6 +215,61 @@ func nodeIsTainted(namespace, deploymentName string, nodeTaints []v1.Taint) bool
 	}
 
 	return nodeIsTainted
+}
+
+// Calculate how much resources if really used on the node
+func getNodeReallyOccupiedResources(nodeName string, podAPIList *v1.PodList) (int64, int64) {
+	var requestedCPUSumPod, requestedMemSumPod, usedCPUSumPod, usedMemSumPod, reallyOccupiedCPUSumNode, reallyOccupiedMemSumNode int64
+
+	printDebug("Really Occupied Resources on node %+v:\n", nodeName)
+
+	clientset := getMetricsClientset()
+
+	podMetricsList, err := clientset.MetricsV1beta1().PodMetricses("").List(context.TODO(), metav1.ListOptions{})
+	checkErr(err)
+
+	for _, podAPI := range podAPIList.Items {
+		if podAPI.Spec.NodeName == nodeName {
+			requestedCPUSumPod = 0
+			requestedMemSumPod = 0
+			usedCPUSumPod = 0
+			usedMemSumPod = 0
+
+			printDebug("Pod \"%+v\" in namespace \"%+v\":\n", podAPI.Name, podAPI.Namespace)
+
+			for _, containerAPI := range podAPI.Spec.Containers {
+				requestedCPUSumPod += containerAPI.Resources.Requests.Cpu().MilliValue()
+				requestedMemSumPod += containerAPI.Resources.Requests.Memory().Value()
+			}
+
+			printDebug("Requested MilliCpuSum: %+v\nRequested MemSum: %+v\n", requestedCPUSumPod, requestedMemSumPod)
+
+			for _, podMetrics := range podMetricsList.Items {
+				if podMetrics.Namespace == podAPI.Namespace && podMetrics.Name == podAPI.Name {
+
+					for _, containerMetrics := range podMetrics.Containers {
+						usedCPUSumPod += containerMetrics.Usage.Cpu().MilliValue()
+						usedMemSumPod += containerMetrics.Usage.Memory().Value()
+					}
+
+				}
+			}
+
+			printDebug("Used MilliCpuSum: %+v\nUsed MemSum: %+v\n", usedCPUSumPod, usedMemSumPod)
+
+			reallyOccupiedCPUSumPod, reallyOccupiedMemSumPod := calculateReallyOccupiedResources(usedCPUSumPod, usedMemSumPod, requestedCPUSumPod, requestedMemSumPod)
+
+			printDebug("Really Occupied MilliCpuSum (for pod): %+v\nReally Occupied MemSum (for pod): %+v\n", reallyOccupiedCPUSumPod, reallyOccupiedMemSumPod)
+
+			reallyOccupiedCPUSumNode += reallyOccupiedCPUSumPod
+			reallyOccupiedMemSumNode += reallyOccupiedMemSumPod
+
+		}
+	}
+
+	printDebug("Really Occupied MilliCpuSum (for node): %+v\nReally Occupied MemSum (for node): %+v\n", reallyOccupiedCPUSumNode, reallyOccupiedMemSumNode)
+
+	return reallyOccupiedCPUSumNode, reallyOccupiedMemSumNode
 }
 
 // Check if the deployment in the specified namespace has some affinities

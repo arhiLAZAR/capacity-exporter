@@ -82,8 +82,8 @@ type promQueryParamsType struct {
 func main() {
 	var allowedNodes []string
 
-	allocatableCPU := make(map[string]int64)
-	allocatableMemory := make(map[string]int64)
+	freeCPU := make(map[string]int64)
+	freeMemory := make(map[string]int64)
 	totalRequestedCPU := make(map[string]int64)
 	totalRequestedMemory := make(map[string]int64)
 	deploymentRequestedCPU := make(map[string]int64)
@@ -134,8 +134,8 @@ func main() {
 				deploymentLabels := getAntiAffinityLabels(&config, nsName, deploymentName)
 				printDebug("Namespace: \"%s\"\nAllowed labels: %+v\nForbidden labels: %+v\n", nsName, deploymentLabels.Allowed, deploymentLabels.Forbidden)
 
-				allocatableCPU[nsName], allocatableMemory[nsName], allowedNodes = getAllocatableResources(nsName, deploymentName, deploymentLabels, &nodeList)
-				printDebug("Allocatable MilliCpuSum: %+v\nAllocatable MemSum: %+v\nAllowed nodes: %+v\n", allocatableCPU[nsName], allocatableMemory[nsName], allowedNodes)
+				freeCPU[nsName], freeMemory[nsName], allowedNodes = getFreeResources(nsName, deploymentName, deploymentLabels, &nodeList, &podList)
+				printDebug("Free MilliCpuSum: %+v\nFree MemSum: %+v\nAllowed nodes: %+v\n", freeCPU[nsName], freeMemory[nsName], allowedNodes)
 
 				totalRequestedCPU[nsName], totalRequestedMemory[nsName] = getTotalRequestedResources(allowedNodes, &podList)
 				printDebug("Total Requested MilliCpuSum: %+v\nTotal Requested MemSum: %+v\n", totalRequestedCPU[nsName], totalRequestedMemory[nsName])
@@ -175,7 +175,7 @@ func main() {
 				fullChainCPU[nsName], fullChainMemory[nsName] = calculateFullChainResources(&config, nsName, reallyOccupiedCPU, reallyOccupiedMemory, ingressMultipliers)
 				printDebug("Full Chain MilliCpuSum: %+v\nFull Chain MemSum: %+v\n", fullChainCPU[nsName], fullChainMemory[nsName])
 
-				clusterCanHandleAdditionalPods[nsName] = calculateClusterCanHandlePods(allocatableCPU[nsName], allocatableMemory[nsName], fullChainCPU[nsName], fullChainMemory[nsName], podsAmount[nsName])
+				clusterCanHandleAdditionalPods[nsName] = calculateClusterCanHandlePods(freeCPU[nsName], freeMemory[nsName], fullChainCPU[nsName], fullChainMemory[nsName], podsAmount[nsName])
 				printDebug("Cluster can handle %+v additional pods\n", clusterCanHandleAdditionalPods[nsName])
 
 				oneRPSCostCPU[nsName], oneRPSCostMemory[nsName] = calculateOneRPSCost(fullChainCPU[nsName], fullChainMemory[nsName], adjustedRPS[nsName])

@@ -16,17 +16,17 @@ func calculateOneRPSCost(fullChainCPU, fullChainMemory, adjustedRPS int64) (floa
 }
 
 // Calculate how many additional pods can the cluster handle, based on CPU and Memory occupied by all pod's dependencies
-func calculateClusterCanHandlePods(allocatableCPU, allocatableMemory, fullChainCPU, fullChainMemory int64, podsAmount int) int64 {
+func calculateClusterCanHandlePods(freeCPU, freeMemory, fullChainCPU, fullChainMemory int64, podsAmount int) int64 {
 	var clusterCanHandlePods, clusterCanHandleAdditionalPods int64
 
 	if podsAmount == 0 {
 		clusterCanHandleAdditionalPods = 0
 	} else {
 		fullChainCPUPerPod := fullChainCPU / int64(podsAmount)
-		clusterCanHandlePodsCPU := allocatableCPU / fullChainCPUPerPod
+		clusterCanHandlePodsCPU := freeCPU / fullChainCPUPerPod
 
 		fullChainMemoryPerPod := fullChainMemory / int64(podsAmount)
-		clusterCanHandlePodsMemory := allocatableMemory / fullChainMemoryPerPod
+		clusterCanHandlePodsMemory := freeMemory / fullChainMemoryPerPod
 
 		printDebug("Cluster can handle pods (AT ALL) per CPU: %+v, per Memory: %+v\n", clusterCanHandlePodsCPU, clusterCanHandlePodsMemory)
 
