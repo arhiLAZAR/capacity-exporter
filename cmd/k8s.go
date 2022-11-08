@@ -141,7 +141,7 @@ func getFreeResources(namespace, deploymentName string, deploymentLabels deploym
 				freeCPUNode := allocatableCPU - reallyOccupiedCPU
 				freeMemNode := allocatableMem - reallyOccupiedMem
 
-				printDebug("Free MilliCpuSum (for node): %+v\nFree MemSum (for node: %+v\n", freeCPUNode, freeMemNode)
+				printDebug("Free MilliCpuSum (for node): %+v\nFree MemSum (for node): %+v\n", freeCPUNode, freeMemNode)
 
 				if freeCPUNode > 0 {
 					freeCPUSum += freeCPUNode
@@ -150,6 +150,8 @@ func getFreeResources(namespace, deploymentName string, deploymentLabels deploym
 				if freeMemNode > 0 {
 					freeMemSum += freeMemNode
 				}
+
+				printDebug("Free MilliCpuSum (for namespace, intermediate): %+v\nFree MemSum (for namespace, intermediate): %+v\n", freeCPUSum, freeMemSum)
 
 				allowedNodes = append(allowedNodes, node.Name)
 
