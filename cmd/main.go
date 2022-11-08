@@ -135,7 +135,7 @@ func main() {
 				printDebug("Namespace: \"%s\"\nAllowed labels: %+v\nForbidden labels: %+v\n", nsName, deploymentLabels.Allowed, deploymentLabels.Forbidden)
 
 				freeCPU[nsName], freeMemory[nsName], allowedNodes = getFreeResources(nsName, deploymentName, deploymentLabels, &nodeList, &podList)
-				printDebug("Free MilliCpuSum: %+v\nFree MemSum: %+v\nAllowed nodes: %+v\n", freeCPU[nsName], freeMemory[nsName], allowedNodes)
+				printDebug("Free MilliCpuSum (for namespace): %+v\nFree MemSum (for namespace): %+v\nAllowed nodes: %+v\n", freeCPU[nsName], freeMemory[nsName], allowedNodes)
 
 				totalRequestedCPU[nsName], totalRequestedMemory[nsName] = getTotalRequestedResources(allowedNodes, &podList)
 				printDebug("Total Requested MilliCpuSum: %+v\nTotal Requested MemSum: %+v\n", totalRequestedCPU[nsName], totalRequestedMemory[nsName])
