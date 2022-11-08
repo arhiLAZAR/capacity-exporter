@@ -21,7 +21,7 @@ const (
 	prometheusDefaultTimeout      = 10
 	exporterNamespace             = "capacity"
 	exporterDefaultPort           = 9301
-	exporterDefaultScrapeInterval = 10
+	exporterDefaultScrapeInterval = 60
 )
 
 type configType struct {
