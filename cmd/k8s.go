@@ -84,7 +84,7 @@ func getDeploymentRequestedResources(namespace, deploymentName string) (int64, i
 // Get total amount of free (allocatable minus really occupied) memory and cpu for nodes with relevant labels in the specific namespace
 // If allowed labels are specified then count the node only if the labels match
 // If forbidden labels are specified then count the node only if the labels do not match
-func getFreeResources(namespace, deploymentName string, deploymentLabels deploymentLabelsType, nodeList *v1.NodeList, podList *v1.PodList, podMetricsList *v1beta1.PodMetricsList) (int64, int64, []string) {
+func getFreeResources(namespace, deploymentName string, deploymentLabels deploymentLabelsType, nodeList *v1.NodeList, podList *v1.PodList, podMetricsList *v1beta1.PodMetricsList, reallyOccupiedDeploymentCPU, reallyOccupiedDeploymentMem int64, podsAmount int) (int64, int64, []string) {
 	var everythingAllowed, nothingForbidden, thisNodeIsAllowed, thisNodeIsForbidden bool
 	var freeCPUSum, freeMemSum int64
 	var allowedNodes []string
@@ -133,22 +133,22 @@ func getFreeResources(namespace, deploymentName string, deploymentLabels deploym
 			if !nodeIsTainted(namespace, deploymentName, node.Spec.Taints) {
 				printDebug("and not tainted!\n")
 
-				reallyOccupiedCPU, reallyOccupiedMem := getNodeReallyOccupiedResources(node.Name, podList, podMetricsList)
+				reallyOccupiedNodeCPU, reallyOccupiedNodeMem := getNodeReallyOccupiedResources(node.Name, podList, podMetricsList)
 				allocatableCPU := node.Status.Capacity.Cpu().MilliValue()
 				allocatableMem := node.Status.Capacity.Memory().Value()
-
 				printDebug("Allocatable MilliCpuSum: %+v\nAllocatable MemSum: %+v\n", allocatableCPU, allocatableMem)
 
-				freeCPUNode := allocatableCPU - reallyOccupiedCPU
-				freeMemNode := allocatableMem - reallyOccupiedMem
-
+				freeCPUNode := allocatableCPU - reallyOccupiedNodeCPU
+				freeMemNode := allocatableMem - reallyOccupiedNodeMem
 				printDebug("Free MilliCpuSum (for node): %+v\nFree MemSum (for node): %+v\n", freeCPUNode, freeMemNode)
 
-				if freeCPUNode > 0 {
-					freeCPUSum += freeCPUNode
-				}
+				reallyOccupiedPodCPU := reallyOccupiedDeploymentCPU / int64(podsAmount)
+				reallyOccupiedPodMem := reallyOccupiedDeploymentMem / int64(podsAmount)
+				printDebug("MilliCpuSum needed for one pod: %+v\nMemSum needed for one pod: %+v\n", reallyOccupiedPodCPU, reallyOccupiedPodMem)
 
-				if freeMemNode > 0 {
+				// Count node's resources only if the node has enough resources for at least one pod
+				if freeCPUNode >= reallyOccupiedPodCPU && freeMemNode >= reallyOccupiedPodMem {
+					freeCPUSum += freeCPUNode
 					freeMemSum += freeMemNode
 				}
 

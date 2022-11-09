@@ -133,9 +133,6 @@ func main() {
 				deploymentLabels := getAntiAffinityLabels(&config, nsName, deploymentName)
 				printDebug("Namespace: \"%s\"\nAllowed labels: %+v\nForbidden labels: %+v\n", nsName, deploymentLabels.Allowed, deploymentLabels.Forbidden)
 
-				freeCPU[nsName], freeMemory[nsName], allowedNodes = getFreeResources(nsName, deploymentName, deploymentLabels, &nodeList, &podList, &podMetricsList)
-				printDebug("Free MilliCpuSum (for namespace \"%+v\"): %+v\nFree MemSum (for namespace \"%+v\"): %+v\nAllowed nodes: %+v\n", nsName, freeCPU[nsName], nsName, freeMemory[nsName], allowedNodes)
-
 				deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName] = getDeploymentRequestedResources(nsName, deploymentName)
 				printDebug("Deployment Requested MilliCpuSum: %+v\nDeployment Requested MemSum: %+v\n", deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName])
 
@@ -147,6 +144,9 @@ func main() {
 
 				reallyOccupiedCPU[nsName], reallyOccupiedMemory[nsName] = calculateReallyOccupiedResources(usedCPU[nsName], usedMemory[nsName], deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName])
 				printDebug("Really Occupied MilliCpuSum: %+v\nReally Occupied MemSum: %+v\n", reallyOccupiedCPU[nsName], reallyOccupiedMemory[nsName])
+
+				freeCPU[nsName], freeMemory[nsName], allowedNodes = getFreeResources(nsName, deploymentName, deploymentLabels, &nodeList, &podList, &podMetricsList, reallyOccupiedCPU[nsName], reallyOccupiedMemory[nsName], podsAmount[nsName])
+				printDebug("Free MilliCpuSum (for namespace \"%+v\"): %+v\nFree MemSum (for namespace \"%+v\"): %+v\nAllowed nodes: %+v\n", nsName, freeCPU[nsName], nsName, freeMemory[nsName], allowedNodes)
 
 				config.Namespaces[nsNum].DependsOnFullChain = getDependencies(&config, nsName)
 				printDebug("Dependencies: %+v\n", config.Namespaces[nsNum].DependsOnFullChain)
