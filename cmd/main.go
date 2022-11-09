@@ -84,8 +84,6 @@ func main() {
 
 	freeCPU := make(map[string]int64)
 	freeMemory := make(map[string]int64)
-	totalRequestedCPU := make(map[string]int64)
-	totalRequestedMemory := make(map[string]int64)
 	deploymentRequestedCPU := make(map[string]int64)
 	deploymentRequestedMemory := make(map[string]int64)
 	usedCPU := make(map[string]int64)
@@ -137,9 +135,6 @@ func main() {
 
 				freeCPU[nsName], freeMemory[nsName], allowedNodes = getFreeResources(nsName, deploymentName, deploymentLabels, &nodeList, &podList, &podMetricsList)
 				printDebug("Free MilliCpuSum (for namespace \"%+v\"): %+v\nFree MemSum (for namespace \"%+v\"): %+v\nAllowed nodes: %+v\n", nsName, freeCPU[nsName], nsName, freeMemory[nsName], allowedNodes)
-
-				totalRequestedCPU[nsName], totalRequestedMemory[nsName] = getTotalRequestedResources(allowedNodes, &podList)
-				printDebug("Total Requested MilliCpuSum: %+v\nTotal Requested MemSum: %+v\n", totalRequestedCPU[nsName], totalRequestedMemory[nsName])
 
 				deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName] = getDeploymentRequestedResources(nsName, deploymentName)
 				printDebug("Deployment Requested MilliCpuSum: %+v\nDeployment Requested MemSum: %+v\n", deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName])

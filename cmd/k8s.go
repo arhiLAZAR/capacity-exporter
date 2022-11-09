@@ -35,6 +35,7 @@ func getUsedResources(namespace string, deploymentName ...string) (int64, int64)
 	return cpuSum, memSum
 }
 
+// DEPRECATED function!
 // Get total amount of requested memory and cpu on specified nodes
 func getTotalRequestedResources(nodes []string, pods *v1.PodList) (int64, int64) {
 	var cpuSum, memSum int64
