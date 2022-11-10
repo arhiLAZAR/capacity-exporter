@@ -84,6 +84,8 @@ func main() {
 
 	freeCPU := make(map[string]int64)
 	freeMemory := make(map[string]int64)
+	allocatableCPU := make(map[string]int64)
+	allocatableMemory := make(map[string]int64)
 	deploymentRequestedCPU := make(map[string]int64)
 	deploymentRequestedMemory := make(map[string]int64)
 	usedCPU := make(map[string]int64)
@@ -107,6 +109,8 @@ func main() {
 	metricAdjustedRPS := make(map[string]prometheus.Gauge)
 	metricFreeCPU := make(map[string]prometheus.Gauge)
 	metricFreeMemory := make(map[string]prometheus.Gauge)
+	metricAllocatableCPU := make(map[string]prometheus.Gauge)
+	metricAllocatableMemory := make(map[string]prometheus.Gauge)
 
 	config := readConfig()
 
@@ -122,6 +126,8 @@ func main() {
 		metricAdjustedRPS[app] = createGauge("rps_adjusted", "Adjusted RPS with multipliers from config", labels)
 		metricFreeCPU[app] = createGauge("free_cpu", "MilliCPUs available for the app", labels)
 		metricFreeMemory[app] = createGauge("free_mem", "Memory bytes available for the app", labels)
+		metricAllocatableCPU[app] = createGauge("allocatable_cpu", "Total allocatable MilliCPUs for the app", labels)
+		metricAllocatableMemory[app] = createGauge("allocatable_mem", "Total allocatable Memory bytes for the app", labels)
 	}
 
 	go func() {
@@ -149,7 +155,7 @@ func main() {
 				reallyOccupiedCPU[nsName], reallyOccupiedMemory[nsName] = calculateReallyOccupiedResources(usedCPU[nsName], usedMemory[nsName], deploymentRequestedCPU[nsName], deploymentRequestedMemory[nsName])
 				printDebug("Really Occupied MilliCpuSum: %+v\nReally Occupied MemSum: %+v\n", reallyOccupiedCPU[nsName], reallyOccupiedMemory[nsName])
 
-				freeCPU[nsName], freeMemory[nsName], allowedNodes = getFreeResources(nsName, deploymentName, deploymentLabels, &nodeList, &podList, &podMetricsList, reallyOccupiedCPU[nsName], reallyOccupiedMemory[nsName], podsAmount[nsName])
+				freeCPU[nsName], freeMemory[nsName], allocatableCPU[nsName], allocatableMemory[nsName], allowedNodes = getFreeResources(nsName, deploymentName, deploymentLabels, &nodeList, &podList, &podMetricsList, reallyOccupiedCPU[nsName], reallyOccupiedMemory[nsName], podsAmount[nsName])
 				printDebug("Free MilliCpuSum (for namespace \"%+v\"): %+v\nFree MemSum (for namespace \"%+v\"): %+v\nAllowed nodes: %+v\n", nsName, freeCPU[nsName], nsName, freeMemory[nsName], allowedNodes)
 
 				config.Namespaces[nsNum].DependsOnFullChain = getDependencies(&config, nsName)
@@ -192,6 +198,8 @@ func main() {
 				metricAdjustedRPS[nsName].Set(float64(adjustedRPS[nsName]))
 				metricFreeCPU[nsName].Set(float64(freeCPU[nsName]))
 				metricFreeMemory[nsName].Set(float64(freeMemory[nsName]))
+				metricAllocatableCPU[nsName].Set(float64(allocatableCPU[nsName]))
+				metricAllocatableMemory[nsName].Set(float64(allocatableMemory[nsName]))
 			}
 
 			// TODO: read exporterScrapeInterval from config

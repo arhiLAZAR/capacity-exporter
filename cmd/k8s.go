@@ -84,9 +84,9 @@ func getDeploymentRequestedResources(namespace, deploymentName string) (int64, i
 // Get total amount of free (allocatable minus really occupied) memory and cpu for nodes with relevant labels in the specific namespace
 // If allowed labels are specified then count the node only if the labels match
 // If forbidden labels are specified then count the node only if the labels do not match
-func getFreeResources(namespace, deploymentName string, deploymentLabels deploymentLabelsType, nodeList *v1.NodeList, podList *v1.PodList, podMetricsList *v1beta1.PodMetricsList, reallyOccupiedDeploymentCPU, reallyOccupiedDeploymentMem int64, podsAmount int) (int64, int64, []string) {
+func getFreeResources(namespace, deploymentName string, deploymentLabels deploymentLabelsType, nodeList *v1.NodeList, podList *v1.PodList, podMetricsList *v1beta1.PodMetricsList, reallyOccupiedDeploymentCPU, reallyOccupiedDeploymentMem int64, podsAmount int) (int64, int64, int64, int64, []string) {
 	var everythingAllowed, nothingForbidden, thisNodeIsAllowed, thisNodeIsForbidden bool
-	var freeCPUSum, freeMemSum int64
+	var freeCPUSum, freeMemSum, allocatableCPUSum, allocatableMemSum int64
 	var allowedNodes []string
 
 	if len(deploymentLabels.Allowed) > 0 {
@@ -138,6 +138,9 @@ func getFreeResources(namespace, deploymentName string, deploymentLabels deploym
 				allocatableMem := node.Status.Capacity.Memory().Value()
 				printDebug("Allocatable MilliCpuSum: %+v\nAllocatable MemSum: %+v\n", allocatableCPU, allocatableMem)
 
+				allocatableCPUSum += allocatableCPU
+				allocatableMemSum += allocatableMem
+
 				freeCPUNode := allocatableCPU - reallyOccupiedNodeCPU
 				freeMemNode := allocatableMem - reallyOccupiedNodeMem
 				printDebug("Free MilliCpuSum (for node): %+v\nFree MemSum (for node): %+v\n", freeCPUNode, freeMemNode)
@@ -163,7 +166,7 @@ func getFreeResources(namespace, deploymentName string, deploymentLabels deploym
 
 	}
 
-	return freeCPUSum, freeMemSum, allowedNodes
+	return freeCPUSum, freeMemSum, allocatableCPUSum, allocatableMemSum, allowedNodes
 }
 
 func labelsAreEqual(nodeLabels map[string]string, deploymentLabels []allowedAndForbiddenLabelsType, checkType ...string) bool {
