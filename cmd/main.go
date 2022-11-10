@@ -105,6 +105,8 @@ func main() {
 	metricClusterCanHandleAdditionalPods := make(map[string]prometheus.Gauge)
 	metricRawRPS := make(map[string]prometheus.Gauge)
 	metricAdjustedRPS := make(map[string]prometheus.Gauge)
+	metricFreeCPU := make(map[string]prometheus.Gauge)
+	metricFreeMemory := make(map[string]prometheus.Gauge)
 
 	config := readConfig()
 
@@ -118,6 +120,8 @@ func main() {
 		metricClusterCanHandleAdditionalPods[app] = createGauge("cluster_can_handle_additional_pods", "How many additional pods can the current cluster handle", labels)
 		metricRawRPS[app] = createGauge("rps_raw", "Raw RPS from Prometheus", labels)
 		metricAdjustedRPS[app] = createGauge("rps_adjusted", "Adjusted RPS with multipliers from config", labels)
+		metricFreeCPU[app] = createGauge("free_cpu", "MilliCPUs available for the app", labels)
+		metricFreeMemory[app] = createGauge("free_mem", "Memory bytes available for the app", labels)
 	}
 
 	go func() {
@@ -186,6 +190,8 @@ func main() {
 				metricClusterCanHandleAdditionalPods[nsName].Set(float64(clusterCanHandleAdditionalPods[nsName]))
 				metricRawRPS[nsName].Set(float64(rawRPS[nsName]))
 				metricAdjustedRPS[nsName].Set(float64(adjustedRPS[nsName]))
+				metricFreeCPU[nsName].Set(float64(freeCPU[nsName]))
+				metricFreeMemory[nsName].Set(float64(freeMemory[nsName]))
 			}
 
 			// TODO: read exporterScrapeInterval from config
